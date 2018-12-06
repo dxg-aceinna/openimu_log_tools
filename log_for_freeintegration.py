@@ -19,7 +19,7 @@ PORT = 10600
 network = '<broadcast>'
 
 #### INS1000 available?
-enable_ref = True
+enable_ref = False
 
 def log_openimu(port, baud, pipe):
     imu = openimu.openimu(port, baud, pipe)
@@ -96,7 +96,7 @@ if __name__ == "__main__":
                 latest_ref_euler[1] = latest_ref_euler[1] * attitude.R2D
                 latest_ref_euler[2] = latest_ref_euler[2] * attitude.R2D
             # 4. log data to file
-            lines = "%f, %u, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f\n" % (\
+            lines = "%f, %u, %f, %f, %f, %f, %f, %f, %.9f, %.9f, %.9f, %f, %f, %f, %f, %f, %f\n" % (\
                     time_interval, latest_openimu_timer,\
                     latest_openimu_acc[0], latest_openimu_acc[1], latest_openimu_acc[2],\
                     latest_openimu_gyro[0], latest_openimu_gyro[1], latest_openimu_gyro[2],\
