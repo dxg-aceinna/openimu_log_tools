@@ -1,0 +1,13 @@
+!.gitignore
+
+# visual studio files
+/.vscode/
+
+# python
+__pycache__/
+*.cprofile
+*.pyc
+
+# saved data files
+/free_integration_data/
+log.txt
