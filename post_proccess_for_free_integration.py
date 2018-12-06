@@ -1,3 +1,4 @@
+import os
 import math
 import threading
 import numpy as np
@@ -19,14 +20,21 @@ zero_ini_vel = True
 acc_ini_att = True
 
 def post_processing(data_file):
+    #### create data dir
+    if not os.path.exists(data_dir):
+        try:
+            os.makedirs(data_dir)
+        except:
+            raise IOError('Cannot create dir: %s.'% data_dir)
     #### read logged file
     data = np.genfromtxt(data_file, delimiter=',', skip_header=1)
+    # remove zero LLA/Vel/att from ins1000
     data = data[100:, :]
     acc = data[:, 2:5]
     gyro = data[:, 5:8]
     lla = data[:, 8:11]
     vel = data[:, 11:14]
-    euler = data[:, 14:17]
+    euler = data[:, 16:13:-1]
     '''
     Generate logged files.
     You can specify multiple start points to generate multiple sets of data for simulaiton. 
@@ -125,5 +133,5 @@ def parse_index(idx):
         return [int(idx)]
 
 if __name__ == "__main__":
-    data_file = "./log.txt"
+    data_file = "./log1.txt"
     post_processing(data_file)

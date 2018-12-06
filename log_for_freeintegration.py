@@ -32,7 +32,7 @@ def log_ins1000(port, baud, pipe):
 if __name__ == "__main__":
     #### find ports
     new_port = 'COM7'
-    ref_port = 'COM15'
+    ref_port = 'COM29'
     if not enable_ref:
         ref_port = None
     print('%s is an OpenIMU.' % new_port)
