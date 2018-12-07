@@ -1,22 +1,14 @@
 import math
 import serial
 import serial.tools.list_ports
-import threading
 from multiprocessing import Process, Pipe, Array
 import time
-import socket
 import struct
 import numpy as np
 import attitude
 import openimu
 import ins1000
 import post_proccess_for_free_integration
-
-#### used to send out data via UDP
-s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-PORT = 10600
-network = '<broadcast>'
 
 #### INS1000 available?
 enable_ref = False
@@ -31,17 +23,17 @@ def log_ins1000(port, baud, pipe):
 
 if __name__ == "__main__":
     #### find ports
-    new_port = 'COM7'
+    imu_port = 'COM7'
     ref_port = 'COM29'
     if not enable_ref:
         ref_port = None
-    print('%s is an OpenIMU.' % new_port)
+    print('%s is an OpenIMU.' % imu_port)
     print('%s is an INS1000.' % ref_port)
 
     #### create pipes
     # imu
     parent_conn_openimu, child_conn_openimu = Pipe()
-    p_openimu = Process(target=log_openimu, args=(new_port, 115200, child_conn_openimu))
+    p_openimu = Process(target=log_openimu, args=(imu_port, 115200, child_conn_openimu))
     p_openimu.daemon = True
     p_openimu.start()
     # ins1000
@@ -105,11 +97,6 @@ if __name__ == "__main__":
                     latest_ref_euler[2], latest_ref_euler[1], latest_ref_euler[0])
             f.write(lines)
             f.flush()
-            # 5. send data via UDP
-            packed_data = struct.pack('dddddd',\
-                            latest_openimu_acc[0], latest_openimu_acc[1], latest_openimu_acc[2],\
-                            latest_openimu_gyro[0], latest_openimu_gyro[1], latest_openimu_gyro[2])
-            s.sendto(packed_data, (network, PORT))
     except KeyboardInterrupt:
         print("Stop logging, preparing data for simulation...")
         f.close()
