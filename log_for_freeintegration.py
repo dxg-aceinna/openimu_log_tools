@@ -87,7 +87,10 @@ if __name__ == "__main__":
                 latest_ref = parent_conn_ins1000.recv()
                 latest_ref_lla = latest_ref[1]
                 latest_ref_vel = latest_ref[2]
-                latest_ref_euler = attitude.quat2euler(latest_ref[3])   #ypr
+                try:
+                    latest_ref_euler = attitude.quat2euler(latest_ref[3])   #ypr
+                except:
+                    print("quat: %s"% latest_ref[3])
                 latest_ref_euler[0] = latest_ref_euler[0] * attitude.R2D
                 latest_ref_euler[1] = latest_ref_euler[1] * attitude.R2D
                 latest_ref_euler[2] = latest_ref_euler[2] * attitude.R2D
