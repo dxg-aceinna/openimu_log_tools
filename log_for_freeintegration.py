@@ -9,9 +9,15 @@ import attitude
 import openimu
 import ins1000
 import post_proccess_for_free_integration
-
+    
+#### IMU
+imu_port = 'COM7'
 #### INS1000 available?
 enable_ref = False
+ref_port = 'COM15'
+
+log_dir = './log_data/'
+log_file = 'log.txt'
 
 def log_openimu(port, baud, pipe):
     imu = openimu.openimu(port, baud, pipe)
@@ -23,8 +29,6 @@ def log_ins1000(port, baud, pipe):
 
 if __name__ == "__main__":
     #### find ports
-    imu_port = 'COM7'
-    ref_port = 'COM29'
     if not enable_ref:
         ref_port = None
     print('%s is an OpenIMU.' % imu_port)
@@ -44,7 +48,7 @@ if __name__ == "__main__":
         p_ins1000.start()
 
     #### create log file
-    data_file = "log.txt"
+    data_file = log_dir + log_file
     f = open(data_file, 'w+')
     f.truncate()
     headerline = "recv_interval (s), openimu timer,"

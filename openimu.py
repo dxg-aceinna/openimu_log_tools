@@ -44,7 +44,7 @@ class openimu:
                             for i in range(n_bytes):
                                 bf[i] = bf[i+z1_size]
                         else:
-                            print('crc fail')
+                            print('openimu crc fail')
                             n_bytes = sync_packet(bf, n_bytes, z1_header)
                     else:
                         n_bytes = sync_packet(bf, n_bytes, z1_header)

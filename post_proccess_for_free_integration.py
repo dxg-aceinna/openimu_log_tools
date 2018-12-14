@@ -133,5 +133,5 @@ def parse_index(idx):
         return [int(idx)]
 
 if __name__ == "__main__":
-    data_file = "./log1.txt"
+    data_file = "./log_data/log_table9.txt"
     post_processing(data_file)
