@@ -5,6 +5,7 @@ import struct
 import numpy as np
 
 nav_size = 127
+payload_len = 119
 nav_header = bytearray.fromhex('af 20 05 0d')
 
 class ins1000:
@@ -32,12 +33,22 @@ class ins1000:
                 if n_bytes >= nav_size:
                     if bf[0] == nav_header[0] and bf[1] == nav_header[1] and\
                        bf[2] == nav_header[2] and bf[3] == nav_header[3]:
-                        self.latest = parse_nav(bf[6:nav_size])
-                        if self.pipe is not None:
-                                self.pipe.send(self.latest)
-                        for i in range(n_bytes-nav_size):
-                            bf[i] = bf[i+nav_size]
-                        n_bytes = n_bytes - nav_size
+                        # crc
+                        # this_len = struct.unpack('H', bf[4:6])
+                        packet_crc = 256 * bf[nav_size-2] + bf[nav_size-1]
+                        calculated_crc = calc_crc(bf[6:payload_len+6])
+                        # decode
+                        if packet_crc == calculated_crc:
+                            self.latest = parse_nav(bf[6:nav_size])
+                            if self.pipe is not None:
+                                    self.pipe.send(self.latest)
+                            # remove decoded data from the buffer
+                            n_bytes -= nav_size
+                            for i in range(n_bytes):
+                                bf[i] = bf[i+nav_size]
+                        else:
+                            print('ins1000 crc fail')
+                            n_bytes = sync_packet(bf, n_bytes, nav_header)
                     else:
                         n_bytes = sync_packet(bf, n_bytes, nav_header)
                     # print(''.join('{:#x} '.format(x) for x in bf) )
@@ -81,17 +92,22 @@ def sync_packet(bf, bf_len, header):
     return bf_len
 
 def calc_crc(payload):
-    crc = 0x1D0F
-    for bytedata in payload:
-        crc = crc^(bytedata << 8) 
-        for i in range(0,8):
-            if crc & 0x8000:
-                crc = (crc << 1)^0x1021
-            else:
-                crc = crc << 1
-
-    crc = crc & 0xffff
-    return crc
+    '''
+    checksum_A = checksum_B = 0;
+    for (i = 0; i < payload_length; ++i)
+    {
+        checksum_A += payload[i];
+        checksum_B += checksum_A;
+    }
+    '''
+    checksum_A = 0x00
+    chekcsum_B = 0x00
+    for i in payload:
+        checksum_A += i
+        chekcsum_B += checksum_A
+    checksum_A = checksum_A & 0xff
+    chekcsum_B = chekcsum_B & 0xff
+    return 256*checksum_A + chekcsum_B
 
 
 if __name__ == "__main__":
