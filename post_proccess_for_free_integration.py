@@ -19,7 +19,7 @@ zero_ini_vel = True
 #   otherwiese averaged INS1000 output will be used.
 acc_ini_att = True
 
-def post_processing(data_file):
+def post_processing(data_file, nav_view=False):
     #### create data dir
     if not os.path.exists(data_dir):
         try:
@@ -27,14 +27,22 @@ def post_processing(data_file):
         except:
             raise IOError('Cannot create dir: %s.'% data_dir)
     #### read logged file
-    data = np.genfromtxt(data_file, delimiter=',', skip_header=1)
-    # remove zero LLA/Vel/att from ins1000
-    data = data[100:, :]
-    acc = data[:, 2:5]
-    gyro = data[:, 5:8]
-    lla = data[:, 8:11]
-    vel = data[:, 11:14]
-    euler = data[:, 16:13:-1]
+    if nav_view:
+        data = np.genfromtxt(data_file, delimiter='\t', skip_header=15)
+        acc = data[:, 1:4] * 9.80665
+        gyro = data[:, 4:7]
+        lla = np.zeros((acc.shape[0], 3))
+        vel = np.zeros((acc.shape[0], 3))
+        euler = np.zeros((acc.shape[0], 3))
+    else:
+        data = np.genfromtxt(data_file, delimiter=',', skip_header=1)
+        # remove zero LLA/Vel/att from ins1000
+        data = data[100:, :]
+        acc = data[:, 2:5]
+        gyro = data[:, 5:8]
+        lla = data[:, 8:11]
+        vel = data[:, 11:14]
+        euler = data[:, 16:13:-1]
     '''
     Generate logged files.
     You can specify multiple start points to generate multiple sets of data for simulaiton. 
@@ -133,5 +141,5 @@ def parse_index(idx):
         return [int(idx)]
 
 if __name__ == "__main__":
-    data_file = "./log_data/log_table9.txt"
-    post_processing(data_file)
+    data_file = "D:/MyDocuments/desktop/aa.txt"
+    post_processing(data_file, nav_view=True)
