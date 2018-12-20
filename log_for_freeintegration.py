@@ -10,12 +10,13 @@ import openimu
 import imu38x
 import ins1000
 import post_proccess_for_free_integration
-    
+
 #### Unit with NXP accel
 nxp_unit = {'port':'COM11',\
             'baud':115200,\
             'packet_type':'z1',\
             'unit_type':'openimu',\
+            'orientation':'-y+x+z',
             'enable':True}
 #### Unit with Bosch accel
 bosch_unit = {'port':'COM30',\
@@ -44,6 +45,43 @@ def log_imu38x(port, baud, packet, pipe):
 def log_ins1000(port, baud, pipe):
     ins = ins1000.ins1000(port, baud, pipe)
     ins.start()
+
+
+def orientation(data, ori):
+    '''
+    change coordiante according to ori.
+    Args:
+        data: nx3 numpy array
+        ori: a string including +x, -x +y, -y, +z, -z, for example: '-y+x+z'
+    Return:
+        data after coordinate change
+    '''
+    map = {'+x': [0, 1],\
+           '-x': [0, -1],\
+           '+y': [1, 1],\
+           '-y': [1, -1],\
+           '+z': [2, 1],\
+           '-z': [2, -1]}
+    ori = ori.lower()
+    idx_x = int(0)
+    sgn_x = 1
+    idx_y = int(1)
+    sgn_y = 1
+    idx_z = int(2)
+    sgn_z = 1
+    if len(ori) == 6:
+        if ori[0:2] in map:
+            idx_x = int(map[ori[0:2]][0])
+            sgn_x = map[ori[0:2]][1]
+        if ori[2:4] in map:
+            idx_y = int(map[ori[2:4]][0])
+            sgn_y = map[ori[2:4]][1]
+        if ori[4:6] in map:
+            idx_z = int(map[ori[4:6]][0])
+            sgn_z = map[ori[4:6]][1]
+        data[0], data[1], data[2] =\
+            sgn_x * data[idx_x], sgn_y * data[idx_y], sgn_z * data[idx_z]
+    return data
 
 if __name__ == "__main__":
     #### find ports
@@ -130,18 +168,24 @@ if __name__ == "__main__":
             # 2. openimu timer, acc and gyro
             latest_nxp = parent_conn_nxp.recv()
             nxp_timer = latest_nxp[0]
-            nxp_acc = latest_nxp[1]
-            nxp_gyro = latest_nxp[2]
+            nxp_acc = np.array(latest_nxp[1])
+            nxp_gyro = np.array(latest_nxp[2])
+            if 'orientation' in nxp_unit:
+                nxp_acc = orientation(nxp_acc, nxp_unit['orientation'])
+                nxp_gyro = orientation(nxp_gyro, nxp_unit['orientation'])
             # 3. bosch unit
             if( bosch_unit['enable']):
                 latest_bosch = parent_conn_bosch.recv()
-                bosch_acc = latest_bosch[1]
-                bosch_gyro = latest_bosch[2]
+                bosch_acc = np.array(latest_bosch[1])
+                bosch_gyro = np.array(latest_bosch[2])
+                if 'orientation' in bosch_unit:
+                    bosch_acc = orientation(bosch_acc, nxp_unit['orientation'])
+                    bosch_gyro = orientation(bosch_gyro, nxp_unit['orientation'])
             # 4. ins1000 time, lla, vel and quat
             if( ins1000_unit['enable'] and parent_conn_ins1000.poll()):
                 latest_ref = parent_conn_ins1000.recv()
-                ref_lla = latest_ref[1]
-                ref_vel = latest_ref[2]
+                ref_lla = np.array(latest_ref[1])
+                ref_vel = np.array(latest_ref[2])
                 try:
                     latest_ref_euler = attitude.quat2euler(latest_ref[3])   #ypr
                 except:

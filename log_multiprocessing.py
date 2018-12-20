@@ -21,15 +21,15 @@ PORT = 10600
 network = '<broadcast>'
 
 def log_new(port, baud, pipe):
-    new_unit = imu38x.imu38x(port, baud, pipe)
+    new_unit = imu38x.imu38x(port, baud, pipe=pipe)
     new_unit.start()
 
 def log_old(port, baud, pipe):
-    old_unit = imu38x.imu38x(port, baud, pipe)
+    old_unit = imu38x.imu38x(port, baud, pipe=pipe)
     old_unit.start()
 
 def log_ref(port, baud, pipe):
-    ref_unit = ins1000.ins1000(port, baud, pipe)
+    ref_unit = ins1000.ins1000(port, baud, pipe=pipe)
     ref_unit.start()
 
 def get_com_ports():
