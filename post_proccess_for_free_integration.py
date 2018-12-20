@@ -49,6 +49,7 @@ def post_processing(data_file, nav_view=False):
     Generate logged files.
     You can specify multiple start points to generate multiple sets of data for simulaiton. 
     '''
+    # get data before motion to calculate initial states
     plt.ion()
     plt.plot(acc0)
     plt.grid(True)
@@ -60,10 +61,20 @@ def post_processing(data_file, nav_view=False):
     idx0 = int(idx_str)
     if idx0 < 1:
         idx0 = 1
+    # generate initial states and sensor files
+    nxp_dir = data_dir + 'nxp/'
+    gen_sim_files(gyro0, acc0, lla, vel, euler, idx0, nxp_dir)
+    bosch_dir = data_dir + 'bosch/'
+    gen_sim_files(gyro1, acc1, lla, vel, euler, idx0, bosch_dir)
+
+def gen_sim_files(gyro, acc, lla, vel, euler, idx0, dir):
+    # create dir if it does not exist
+    if not os.path.exists(dir):
+        os.mkdir(dir)
     # gyro bias
-    wb = np.average(gyro0[0:idx0,:], axis=0)
+    wb = np.average(gyro[0:idx0,:], axis=0)
     # accel bias, not used
-    ab = np.average(acc0[0:idx0,:], axis=0)
+    ab = np.average(acc[0:idx0,:], axis=0)
     ab_norm = math.sqrt(np.dot(ab, ab))
     # initial pos
     ini_pos = np.average(lla[0:idx0,:], axis=0)
@@ -83,39 +94,39 @@ def post_processing(data_file, nav_view=False):
     #### create log file
     if limit_data_to_10s:
         n = idx0 + int(10.0/dt)
-        if n > data.shape[0]:
-            n = data.shape[0]
+        if n > gyro.shape[0]:
+            n = gyro.shape[0]
     else:
-        n = data.shape[0]
+        n = gyro.shape[0]
     # ini states
-    file_name = data_dir + "ini.txt"
+    file_name = dir + "ini.txt"
     np.savetxt(file_name, ini_states, delimiter=',', comments='')
     # time
     time = np.array(range(0, n-idx0)) * dt
-    file_name = data_dir + "time.csv"
+    file_name = dir + "time.csv"
     headerline = "time (sec)"
     np.savetxt(file_name, time, header=headerline, delimiter=',', comments='')
     # acc
-    file_name = data_dir + "accel-0.csv"
+    file_name = dir + "accel-0.csv"
     headerline = "accel_x (m/s^2),accel_y (m/s^2),accel_z (m/s^2)"
-    np.savetxt(file_name, acc0[idx0:n, :], header=headerline, delimiter=',', comments='')
+    np.savetxt(file_name, acc[idx0:n, :], header=headerline, delimiter=',', comments='')
     # gyro
-    file_name = data_dir + "gyro-0.csv"
+    file_name = dir + "gyro-0.csv"
     headerline = "gyro_x (deg/s),gyro_y (deg/s),gyro_z (deg/s)"
-    np.savetxt(file_name, gyro0[idx0:n, :]-wb, header=headerline, delimiter=',', comments='')
+    np.savetxt(file_name, gyro[idx0:n, :]-wb, header=headerline, delimiter=',', comments='')
     # ref_pos
-    file_name = data_dir + "ref_pos.csv"
+    file_name = dir + "ref_pos.csv"
     headerline = "ref_pos_lat (deg),ref_pos_lon (deg),ref_pos_alt (m)"
     np.savetxt(file_name, lla[idx0:n, :], header=headerline, delimiter=',', comments='')
     # ref_vel
-    file_name = data_dir + "ref_vel.csv"
+    file_name = dir + "ref_vel.csv"
     headerline = "ref_vel_x (m/s),ref_vel_y (m/s),ref_vel_z (m/s)"
     np.savetxt(file_name, vel[idx0:n, :], header=headerline, delimiter=',', comments='')
     # ref_att_euler
-    file_name = data_dir + "ref_att_euler.csv"
+    file_name = dir + "ref_att_euler.csv"
     headerline = "ref_Yaw (deg),ref_Pitch (deg),ref_Roll (deg)"
     np.savetxt(file_name, euler[idx0:n, :], header=headerline, delimiter=',', comments='')
-    print("Simulation data saved to %s"% data_dir)
+    print("Simulation data saved to %s"% dir)
 
 def parse_index(idx):
     ii = idx.find(':')
