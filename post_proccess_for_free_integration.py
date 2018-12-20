@@ -64,8 +64,9 @@ def post_processing(data_file, nav_view=False):
     # generate initial states and sensor files
     nxp_dir = data_dir + 'nxp/'
     gen_sim_files(gyro0, acc0, lla, vel, euler, idx0, nxp_dir)
-    bosch_dir = data_dir + 'bosch/'
-    gen_sim_files(gyro1, acc1, lla, vel, euler, idx0, bosch_dir)
+    if not nav_view:
+        bosch_dir = data_dir + 'bosch/'
+        gen_sim_files(gyro1, acc1, lla, vel, euler, idx0, bosch_dir)
 
 def gen_sim_files(gyro, acc, lla, vel, euler, idx0, dir):
     # create dir if it does not exist

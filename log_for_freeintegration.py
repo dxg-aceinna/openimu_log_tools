@@ -112,7 +112,11 @@ if __name__ == "__main__":
     if bosch_unit['enable']:
         print('connecting to the unti with Bosch accel...')
         parent_conn_bosch, child_conn_bosch = Pipe()
-        p_bosch = Process(target=log_imu38x,\
+        if bosch_unit['unit_type'] == 'imu38x':
+            process_target = log_imu38x
+        elif bosch_unit['unit_type'] == 'openimu':
+            process_target = log_openimu
+        p_bosch = Process(target=process_target,\
                           args=(bosch_unit['port'], bosch_unit['baud'],\
                                 bosch_unit['packet_type'], child_conn_bosch)
                          )
