@@ -12,18 +12,18 @@ import ins1000
 import post_proccess_for_free_integration
 
 #### Unit with NXP accel
-nxp_unit = {'port':'COM11',\
+nxp_unit = {'port':'COM25',\
             'baud':115200,\
-            'packet_type':'z1',\
-            'unit_type':'openimu',\
-            'orientation':'-y+x+z',
+            'packet_type':'e2',\
+            'unit_type':'imu38x',\
+            'orientation':'+y-x+z',
             'enable':True}
 #### Unit with Bosch accel
 bosch_unit = {'port':'COM30',\
               'baud':115200,\
               'packet_type':'s0',\
               'unit_type':'imu38x',\
-              'enable':True}
+              'enable':False}
 #### INS1000
 ins1000_unit = {'port':'COM15',\
                 'baud':230400,\
@@ -35,12 +35,13 @@ log_dir = './log_data/'
 log_file = 'log.csv'
 
 def log_openimu(port, baud, packet, pipe):
-    imu = openimu.openimu(port, baud, pipe)
-    imu.start()
+    openimu_unit = openimu.openimu(port, baud, pipe)
+    openimu_unit.start()
 
 def log_imu38x(port, baud, packet, pipe):
-    new_unit = imu38x.imu38x(port, baud, packet_type=packet, pipe=pipe)
-    new_unit.start()
+    imu38x_unit = imu38x.imu38x(port, baud, packet_type=packet, pipe=pipe)
+    print(imu38x_unit)
+    imu38x_unit.start()
 
 def log_ins1000(port, baud, pipe):
     ins = ins1000.ins1000(port, baud, pipe)
@@ -85,6 +86,8 @@ def orientation(data, ori):
 
 if __name__ == "__main__":
     #### find ports
+    if not nxp_unit['enable']:
+        nxp_unit['port'] = None
     if not bosch_unit['enable']:
         bosch_unit['port'] = None
     if not ins1000_unit['enable']:
@@ -98,10 +101,7 @@ if __name__ == "__main__":
     if nxp_unit['enable']:
         print('connecting to the unti with NXP accel...')
         parent_conn_nxp, child_conn_nxp = Pipe()
-        if nxp_unit['unit_type'] == 'imu38x':
-            process_target = log_imu38x
-        elif nxp_unit['unit_type'] == 'openimu':
-            process_target = log_openimu
+        process_target = log_imu38x
         p_nxp = Process(target=process_target,\
                         args=(nxp_unit['port'], nxp_unit['baud'],\
                               nxp_unit['packet_type'], child_conn_nxp)
@@ -112,10 +112,7 @@ if __name__ == "__main__":
     if bosch_unit['enable']:
         print('connecting to the unti with Bosch accel...')
         parent_conn_bosch, child_conn_bosch = Pipe()
-        if bosch_unit['unit_type'] == 'imu38x':
-            process_target = log_imu38x
-        elif bosch_unit['unit_type'] == 'openimu':
-            process_target = log_openimu
+        process_target = log_imu38x
         p_bosch = Process(target=process_target,\
                           args=(bosch_unit['port'], bosch_unit['baud'],\
                                 bosch_unit['packet_type'], child_conn_bosch)
@@ -169,16 +166,17 @@ if __name__ == "__main__":
             tnow = time.time()
             time_interval = tnow-tstart
             tstart = tnow
-            # 2. openimu timer, acc and gyro
-            latest_nxp = parent_conn_nxp.recv()
-            nxp_timer = latest_nxp[0]
-            nxp_acc = np.array(latest_nxp[1])
-            nxp_gyro = np.array(latest_nxp[2])
-            if 'orientation' in nxp_unit:
-                nxp_acc = orientation(nxp_acc, nxp_unit['orientation'])
-                nxp_gyro = orientation(nxp_gyro, nxp_unit['orientation'])
+            # 2. nxp unit, timer, acc and gyro
+            if nxp_unit['enable']:
+                latest_nxp = parent_conn_nxp.recv()
+                nxp_timer = latest_nxp[0]
+                nxp_acc = np.array(latest_nxp[1])
+                nxp_gyro = np.array(latest_nxp[2])
+                if 'orientation' in nxp_unit:
+                    nxp_acc = orientation(nxp_acc, nxp_unit['orientation'])
+                    nxp_gyro = orientation(nxp_gyro, nxp_unit['orientation'])
             # 3. bosch unit
-            if( bosch_unit['enable']):
+            if bosch_unit['enable']:
                 latest_bosch = parent_conn_bosch.recv()
                 bosch_acc = np.array(latest_bosch[1])
                 bosch_gyro = np.array(latest_bosch[2])
@@ -216,8 +214,9 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("Stop logging, preparing data for simulation...")
         f.close()
-        p_nxp.terminate()
-        p_nxp.join()
+        if nxp_unit['enable']:
+            p_nxp.terminate()
+            p_nxp.join()
         if bosch_unit['enable']:
             p_bosch.terminate()
             p_bosch.join()
