@@ -11,4 +11,5 @@ __pycache__/
 # saved data files
 /free_integration_data/
 /log_data/
+/ins_data/
 log.txt
