@@ -14,8 +14,10 @@ s0_header = bytearray.fromhex('5330')
 z1_size = 47
 z1_header = bytearray.fromhex('7a31')
 # e2 packet
-e2_size = 130
+e2_size = 154
 e2_header = bytearray.fromhex('6532')
+
+reset_command = bytearray.fromhex('5555725300FC88')
 
 class imu38x:
     def __init__(self, port, baud=115200, packet_type='a2', pipe=None):
@@ -33,13 +35,13 @@ class imu38x:
         if packet_type.lower() == 'a2':
             pass
         elif packet_type.lower() == 's0':
-            # self.header = s0_header
+            self.header = s0_header
             self.size = s0_size
         elif packet_type.lower() == 'z1':
-            # self.header = z1_header
+            self.header = z1_header
             self.size = z1_size
         elif packet_type.lower() == 'e2':
-            # self.header = e2_header
+            self.header = e2_header
             self.size = e2_size
         else:
             self.open = False
@@ -47,6 +49,8 @@ class imu38x:
 
     def start(self):
         if self.open:
+            self.ser.reset_input_buffer()
+            self.ser.write(reset_command)
             bf = bytearray(self.size*2)
             n_bytes = 0
             while True:
@@ -57,14 +61,15 @@ class imu38x:
                     bf[n_bytes + i] = data[i]
                 n_bytes += n
                 while n_bytes >= self.size:
-                    if bf[0] == 0x55 and bf[1] == 0x55:
+                    if bf[0] == packet_header[0] and bf[1] == packet_header[1] and\
+                       bf[2] == self.header[0] and bf[3] == self.header[1]:
                         # crc
                         packet_crc = 256 * bf[self.size-2] + bf[self.size-1]
                         calculated_crc = self.calc_crc(bf[2:bf[4]+5])
                         # decode
                         if packet_crc == calculated_crc:
                             self.latest = self.parse_packet(bf[2:bf[4]+5])
-                            print(self.latest)
+                            # print(self.latest)
                             if self.pipe is not None:
                                 self.pipe.send(self.latest)
                             # remove decoded data from the buffer
@@ -205,58 +210,83 @@ class imu38x:
         parse e2 packet.
         The payload length (NumOfBytes) is based on the following:
             1 uint32_t (4 bytes) =   4 bytes   timer
-            1 double (8 bytes)   =   8 bytes   timer(double)
+            1 float  (4 bytes)   =   4 bytes   GPS heading
+            1 uint32_t (4 bytes) =   4 bytes   GPS itow
             3 floats (4 bytes)   =  12 bytes   ea
             3 floats (4 bytes)   =  12 bytes   a
             3 floats (4 bytes)   =  12 bytes   aBias
             3 floats (4 bytes)   =  12 bytes   w
             3 floats (4 bytes)   =  12 bytes   wBias
             3 floats (4 bytes)   =  12 bytes   v
-            3 floats (4 bytes)   =  12 bytes   m
+            3 floats (4 bytes)   =  12 bytes   GPS NED velocity
             3 double (8 bytes)   =  24 bytes   lla
+            3 double (8 bytes)   =  24 bytes   gps LLA
             1 uint8_t (1 byte)   =   1 bytes
             1 uint8_t (1 byte)   =   1 bytes
             1 uint8_t (1 byte)   =   1 bytes
             =================================
-                        NumOfBytes = 123 bytes
+                        NumOfBytes = 147 bytes
         '''
         fmt = '=I'          # timer
-        fmt += 'd'          # timer (double)
+        fmt += 'f'          # GPS heading
+        fmt += 'I'          # GPS itow
         fmt += 'fff'        # Euler angles
         fmt += 'fff'        # accel
-        fmt += 'fff'        # accel bias
+        fmt += 'fff'        # accel bias, replaced by hdop, hacc, vacc for debug
         fmt += 'fff'        # gyro
         fmt += 'fff'        # gyro bias
         fmt += 'fff'        # velocity
-        fmt += 'fff'        # mag
+        fmt += 'fff'        # GPS NED velocity
         fmt += 'ddd'        # lla
+        fmt += 'ddd'        # debug
         fmt += 'B'          # opMode
         fmt += 'B'          # linAccelSw
-        fmt += 'B'          # turnSw
+        fmt += 'B'          # turnSw (bit1) gpsMeasurementUpdate (bit0)
         data = struct.unpack(fmt, payload)
         timer = data[0]
-        timer_d = data[1]
-        euler = data[2:5]
-        acc = data[5:8]
-        acc_bias = data[8:11]
-        gyro = data[11:14]
-        gyro_bias = data[14:17]
-        velocity = data[17:20]
-        mag = data[20:23]
-        lla = data[23:26]
-        op_mode = data[26]
-        lin_accel_sw = data[27]
-        turn_sw = data[28]
-        return timer, acc, gyro, timer_d, euler, velocity, lla
+        gps_heading = data[1]
+        gps_itow = data[2]
+        euler = data[3:6]
+        acc = data[6:9]
+        acc_bias = data[9:12]
+        gyro = data[12:15]
+        gyro_bias = data[15:18]
+        velocity = data[18:21]
+        gps_velocity = data[21:24]
+        lla = data[24:27]
+        gps_lla = data[27:30]
+        op_mode = data[30]
+        lin_accel_sw = data[31]
+        turn_sw = data[32]
+        return timer, gps_itow, acc, gyro, lla, velocity, euler,\
+            gps_lla, gps_velocity, gps_heading, acc_bias, turn_sw
 
     def sync_packet(self, bf, bf_len, header):
-        idx = bf.find(header[0], 0, bf_len) 
-        if idx > 0 and bf[idx+1] == header[1]:
-            bf_len = bf_len - idx
-            for i in range(bf_len):
-                bf[i] = bf[i+idx]
-        else:
-            bf_len = 0
+        idx = -1
+        while 1:
+            idx = bf.find(header[0], idx+1, bf_len)
+            # first byte of the header not found
+            if idx < 0:
+                bf_len = 0
+                break
+            # first byte of the header is found and there is enough bytes in buffer
+            #   to match the header and packet type
+            elif idx <= (bf_len-4):
+                if bf[idx+1] == header[1] and\
+                    bf[idx+2] == self.header[0] and bf[idx+3] == self.header[1]:
+                    bf_len = bf_len - idx
+                    for i in range(bf_len):
+                        bf[i] = bf[i+idx]
+                    break
+                else:
+                    continue
+            # first byte of the header is found, but there is not enough bytes in buffer
+            #   to match the header and packet type
+            else:
+                bf_len = bf_len - idx
+                for i in range(bf_len):
+                    bf[i] = bf[i+idx]
+                break
         return bf_len
 
     def calc_crc(self, payload):
@@ -275,7 +305,7 @@ class imu38x:
         return crc
 
 if __name__ == "__main__":
-    port = 'COM25'
+    port = 'COM36'
     baud = 115200
-    unit = imu38x(port, baud, packet_type='e2', pipe=None)
+    unit = imu38x(port, baud, packet_type='z1', pipe=None)
     unit.start()
