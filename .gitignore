@@ -12,4 +12,6 @@ __pycache__/
 /free_integration_data/
 /log_data/
 /ins_data/
+/kml/ins381.kml
+/kml/ins1000.kml
 log.txt
