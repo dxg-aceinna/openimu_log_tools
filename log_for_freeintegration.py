@@ -12,18 +12,19 @@ import ins1000
 import post_proccess_for_free_integration
 
 #### Unit with NXP accel
-nxp_unit = {'port':'COM25',\
+nxp_unit = {'port':'COM11',\
             'baud':115200,\
-            'packet_type':'e2',\
+            'packet_type':'z1',\
             'unit_type':'imu38x',\
-            'orientation':'+y-x+z',
+            'orientation':'-y+x+z',\
             'enable':True}
 #### Unit with Bosch accel
-bosch_unit = {'port':'COM30',\
+bosch_unit = {'port':'COM17',\
               'baud':115200,\
               'packet_type':'s0',\
               'unit_type':'imu38x',\
-              'enable':False}
+              'orientation':'-y+x+z',\
+              'enable':True}
 #### INS1000
 ins1000_unit = {'port':'COM15',\
                 'baud':230400,\
@@ -40,7 +41,6 @@ def log_openimu(port, baud, packet, pipe):
 
 def log_imu38x(port, baud, packet, pipe):
     imu38x_unit = imu38x.imu38x(port, baud, packet_type=packet, pipe=pipe)
-    print(imu38x_unit)
     imu38x_unit.start()
 
 def log_ins1000(port, baud, pipe):
