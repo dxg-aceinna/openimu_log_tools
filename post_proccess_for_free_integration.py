@@ -154,5 +154,5 @@ def parse_index(idx):
         return [int(idx)]
 
 if __name__ == "__main__":
-    data_file = "D:/MyDocuments/desktop/aa.csv"
-    post_processing(data_file, nav_view=True)
+    data_file = "E:\Projects\python-imu380-mult\log_data\log.csv"
+    post_processing(data_file, nav_view=False)
