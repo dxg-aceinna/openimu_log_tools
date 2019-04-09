@@ -47,6 +47,6 @@ def post_processing(data_file):
     
 
 if __name__ == "__main__":
-    data_file = "E:\\Projects\\python-imu380-mult\\log_data\\log-5.csv"
-    # data_file = "E:\\vs_projects\\dmu380_offline_sim-ins\\sim_app\\x64\\Debug\\results.csv"
+    # data_file = "E:\\Projects\\python-imu380-mult\\log_data\\log-5.csv"
+    data_file = "E:\\vs_projects\\dmu380_offline_sim-ins\\sim_app\\x64\\Debug\\results.csv"
     post_processing(data_file)

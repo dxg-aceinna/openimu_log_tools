@@ -49,10 +49,10 @@ class imu38x:
 
     def start(self):
         if self.open:
-            self.ser.reset_input_buffer()
-            self.ser.write(reset_command)
             bf = bytearray(self.size*2)
             n_bytes = 0
+            self.ser.write(reset_command)
+            self.ser.reset_input_buffer()
             while True:
                 data = self.ser.read(self.size)
                 ## parse new
@@ -79,6 +79,10 @@ class imu38x:
                         else:
                             print('crc fail: %s %s %s %s'% (self.size, n_bytes, packet_crc, calculated_crc))
                             print('%s'% bf)
+                            # remove the first byte from the buffer
+                            n_bytes -= 1
+                            for i in range(n_bytes):
+                                bf[i] = bf[i+1]
                             n_bytes = self.sync_packet(bf, n_bytes, packet_header)
                     else:
                         n_bytes = self.sync_packet(bf, n_bytes, packet_header)
