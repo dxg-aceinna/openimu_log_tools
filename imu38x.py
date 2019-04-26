@@ -4,15 +4,20 @@ import serial.tools.list_ports
 import struct
 
 packet_header = bytearray.fromhex('5555')
+#### dmu38x packets
 # A2 packet
-a2_size = 37
-a2_header = bytearray.fromhex('4132')
+A2_size = 37
+A2_header = bytearray.fromhex('4132')
 # S0 packet
-s0_size = 37
-s0_header = bytearray.fromhex('5330')
+S0_size = 37
+S0_header = bytearray.fromhex('5330')
+#### OpenIMU packets
 # z1 packet
-z1_size = 47
+z1_size = 47    # payload + 2-byte header + 2-byte type + 1-byte len + 2-byte crc
 z1_header = bytearray.fromhex('7a31')
+# a2 packet
+a2_size = 55
+a2_header = bytearray.fromhex('6132')
 # e2 packet
 e2_size = 154
 e2_header = bytearray.fromhex('6532')
@@ -20,7 +25,7 @@ e2_header = bytearray.fromhex('6532')
 reset_command = bytearray.fromhex('5555725300FC88')
 
 class imu38x:
-    def __init__(self, port, baud=115200, packet_type='a2', pipe=None):
+    def __init__(self, port, baud=115200, packet_type='A2', pipe=None):
         '''Initialize and then start ports search and autobaud process
         '''
         self.port = port
@@ -30,19 +35,23 @@ class imu38x:
         self.latest = []
         self.ready = False
         self.pipe = pipe
-        # self.header = a2_header     # packet type hex, default a2
-        self.size = a2_size  # packet size, default a2 size
-        if packet_type.lower() == 'a2':
-            pass
-        elif packet_type.lower() == 's0':
-            self.header = s0_header
-            self.size = s0_size
-        elif packet_type.lower() == 'z1':
+        # self.header = A2_header     # packet type hex, default A2
+        self.size = A2_size  # packet size, default A2 size
+        if packet_type == 'A2':
+            self.header = A2_header
+            self.size = A2_size
+        elif packet_type == 'S0':
+            self.header = S0_header
+            self.size = S0_size
+        elif packet_type == 'z1':
             self.header = z1_header
             self.size = z1_size
-        elif packet_type.lower() == 'e2':
+        elif packet_type == 'e2':
             self.header = e2_header
             self.size = e2_size
+        elif packet_type == 'a2':
+            self.header = a2_header
+            self.size = a2_size
         else:
             self.open = False
             print('Unsupported packet type: %s'% packet_type)
@@ -94,14 +103,16 @@ class imu38x:
         parse packet
         '''
         data = None
-        if payload[0] == a2_header[0] and payload[1] == a2_header[1]:
+        if payload[0] == A2_header[0] and payload[1] == A2_header[1]:
             data = self.parse_A2(payload[3::])
-        elif payload[0] == s0_header[0] and payload[1] == s0_header[1]:
+        elif payload[0] == S0_header[0] and payload[1] == S0_header[1]:
             data = self.parse_S0(payload[3::])
         elif payload[0] == z1_header[0] and payload[1] == z1_header[1]:
             data = self.parse_z1(payload[3::])
         elif payload[0] == e2_header[0] and payload[1] == e2_header[1]:
             data = self.parse_e2(payload[3::])
+        elif payload[0] == a2_header[0] and payload[1] == a2_header[1]:
+            data = self.parse_a2(payload[3::])
         else:
             print('Unsupported packet type: %s'% payload[0:2])
         return data
@@ -265,6 +276,27 @@ class imu38x:
         return timer, gps_itow, acc, gyro, lla, velocity, euler,\
             gps_lla, gps_velocity, gps_heading, acc_bias, turn_sw
 
+    def parse_a2(self, payload):
+        #   1 uint32_t (4 bytes) = 4 bytes,     itow
+        #   1 double   (8 bytes) = 8 bytes,     itow
+        #   3 floats   (4 bytes) = 12 bytes,    ypr, deg
+        #   3 floats   (4 bytes) = 12 bytes,    corrected gyro, deg/s
+        #   3 floats   (4 bytes) = 12 bytes,    corrected accel, m/s/s
+        #  =================================
+        #             NumOfBytes = 48 bytes
+        fmt = '=I'          # itow
+        fmt += 'd'          # itow, double
+        fmt += 'fff'        # ypr
+        fmt += 'fff'        # corrected gyro
+        fmt += 'fff'        # corrected accel
+        data = struct.unpack(fmt, payload)
+        itow = data[0]
+        # double_itow = data[1]
+        ypr = data[2:5]
+        corrected_w = data[5:8]
+        corrected_a = data[8:11]
+        return itow, ypr, corrected_w, corrected_a
+
     def sync_packet(self, bf, bf_len, header):
         idx = -1
         while 1:
@@ -309,7 +341,7 @@ class imu38x:
         return crc
 
 if __name__ == "__main__":
-    port = 'COM36'
+    port = 'COM7'
     baud = 115200
-    unit = imu38x(port, baud, packet_type='z1', pipe=None)
+    unit = imu38x(port, baud, packet_type='a2', pipe=None)
     unit.start()
