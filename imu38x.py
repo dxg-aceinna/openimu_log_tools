@@ -11,6 +11,9 @@ A2_header = bytearray.fromhex('4132')
 # S0 packet
 S0_size = 37
 S0_header = bytearray.fromhex('5330')
+# S1 packet
+S1_size = 31
+S1_header = bytearray.fromhex('5331')
 #### OpenIMU packets
 # z1 packet
 z1_size = 47    # payload + 2-byte header + 2-byte type + 1-byte len + 2-byte crc
@@ -43,6 +46,9 @@ class imu38x:
         elif packet_type == 'S0':
             self.header = S0_header
             self.size = S0_size
+        elif packet_type == 'S1':
+            self.header = S1_header
+            self.size = S1_size
         elif packet_type == 'z1':
             self.header = z1_header
             self.size = z1_size
@@ -78,7 +84,7 @@ class imu38x:
                         # decode
                         if packet_crc == calculated_crc:
                             self.latest = self.parse_packet(bf[2:bf[4]+5])
-                            # print(self.latest)
+                            print(self.latest[0])
                             if self.pipe is not None:
                                 self.pipe.send(self.latest)
                             # remove decoded data from the buffer
@@ -107,6 +113,8 @@ class imu38x:
             data = self.parse_A2(payload[3::])
         elif payload[0] == S0_header[0] and payload[1] == S0_header[1]:
             data = self.parse_S0(payload[3::])
+        elif payload[0] == S1_header[0] and payload[1] == S1_header[1]:
+            data = self.parse_S1(payload[3::])
         elif payload[0] == z1_header[0] and payload[1] == z1_header[1]:
             data = self.parse_z1(payload[3::])
         elif payload[0] == e2_header[0] and payload[1] == e2_header[1]:
@@ -157,12 +165,50 @@ class imu38x:
             temps[i] = (200 * temp_int16) / math.pow(2,16)
 
         # Counter Value
-        itow = 256 * payload[26] + payload[27]   
+        counter = 256 * payload[26] + payload[27]   
 
         # BIT Value
         bit = 256 * payload[28] + payload[29]
 
-        return itow, accels, gyros, mags, temps, bit
+        return counter, accels, gyros, mags, temps, bit
+
+    def parse_S1(self, payload):
+        '''S1 Payload Contents
+                Byte Offset	Name	Format	Scaling	Units	Description
+                0	xAccel	I2	20/2^16	G	X accelerometer
+                2	yAccel	I2	20/2^16	G	Y accelerometer
+                4	zAccel	I2	20/2^16	G	Z accelerometer
+                6	xRate	I2	7*pi/2^16   [1260 deg/2^16]	rad/s [deg/sec]	X angular rate
+                8	yRate	I2	7*pi/2^16   [1260 deg/2^16]	rad/s [deg/sec]	Y angular rate
+                10	zRate	I2	7*pi/2^16   [1260 deg/2^16]	rad/s [deg/sec]	Z angular rate
+                12	xRateTemp	I2	200/2^16	deg. C	X rate temperature
+                14	yRateTemp	I2	200/2^16	deg. C	Y rate temperature
+                16	zRateTemp	I2	200/2^16	deg. C	Z rate temperature
+                18	boardTemp	I2	200/2^16	deg. C	CPU board temperature
+                20	counter         U2	-	packets	Output time stamp 
+                22	BITstatus	U2	-	-	Master BIT and Status'''
+        accels = [0 for x in range(3)] 
+        for i in range(3):
+            accel_int16 = (256 * payload[2*i] + payload[2*i+1]) - 65535 if 256 * payload[2*i] + payload[2*i+1] > 32767  else  256 * payload[2*i] + payload[2*i+1]
+            accels[i] = (9.80665 * 20 * accel_int16) / math.pow(2,16)
+
+        gyros = [0 for x in range(3)] 
+        for i in range(3):
+            gyro_int16 = (256 * payload[2*i+6] + payload[2*i+7]) - 65535 if 256 * payload[2*i+6] + payload[2*i+7] > 32767  else  256 * payload[2*i+6] + payload[2*i+7]
+            gyros[i] = (1260 * gyro_int16) / math.pow(2,16) 
+
+        temps = [0 for x in range(4)] 
+        for i in range(4):
+            temp_int16 = (256 * payload[2*i+12] + payload[2*i+13]) - 65535 if 256 * payload[2*i+12] + payload[2*i+13] > 32767  else  256 * payload[2*i+12] + payload[2*i+13]
+            temps[i] = (200 * temp_int16) / math.pow(2,16)
+    
+        # Counter Value
+        counter = 256 * payload[20] + payload[21]   
+
+        # BIT Value
+        bit = 256 * payload[22] + payload[23]         
+
+        return counter, accels, gyros, temps, bit
 
     def parse_A2(self, payload):
         '''A2 Payload Contents
@@ -342,6 +388,6 @@ class imu38x:
 
 if __name__ == "__main__":
     port = 'COM7'
-    baud = 115200
-    unit = imu38x(port, baud, packet_type='a2', pipe=None)
+    baud = 38400
+    unit = imu38x(port, baud, packet_type='S1', pipe=None)
     unit.start()
