@@ -5,6 +5,9 @@ import struct
 
 packet_header = bytearray.fromhex('5555')
 #### dmu38x packets
+# A1 packet
+A1_size = 39
+A1_header = bytearray.fromhex('4131')
 # A2 packet
 A2_size = 37
 A2_header = bytearray.fromhex('4132')
@@ -40,7 +43,10 @@ class imu38x:
         self.pipe = pipe
         # self.header = A2_header     # packet type hex, default A2
         self.size = A2_size  # packet size, default A2 size
-        if packet_type == 'A2':
+        if packet_type == 'A1':
+            self.header = A1_header
+            self.size = A1_size
+        elif packet_type == 'A2':
             self.header = A2_header
             self.size = A2_size
         elif packet_type == 'S0':
@@ -84,7 +90,7 @@ class imu38x:
                         # decode
                         if packet_crc == calculated_crc:
                             self.latest = self.parse_packet(bf[2:bf[4]+5])
-                            print(self.latest[0])
+                            # print(self.latest[0])
                             if self.pipe is not None:
                                 self.pipe.send(self.latest)
                             # remove decoded data from the buffer
@@ -109,7 +115,9 @@ class imu38x:
         parse packet
         '''
         data = None
-        if payload[0] == A2_header[0] and payload[1] == A2_header[1]:
+        if payload[0] == A1_header[0] and payload[1] == A1_header[1]:
+            data = self.parse_A1(payload[3::])
+        elif payload[0] == A2_header[0] and payload[1] == A2_header[1]:
             data = self.parse_A2(payload[3::])
         elif payload[0] == S0_header[0] and payload[1] == S0_header[1]:
             data = self.parse_S0(payload[3::])
@@ -209,6 +217,56 @@ class imu38x:
         bit = 256 * payload[22] + payload[23]         
 
         return counter, accels, gyros, temps, bit
+
+    def parse_A1(self, payload):
+        '''A1 Payload Contents
+            0	rollAngle	I2	2*pi/2^16 [360 deg/2^16]	Radians [deg]	Roll angle
+            2	pitchAngle	I2	2*pi/2^16 [360 deg/2^16]	Radians [deg]	Pitch angle
+            4	yawAngleMag	I2	2*pi/2^16 [360 deg/2^16]	Radians [deg]	Yaw angle (magnetic north)
+            6	xRateCorrected	I2	7*pi/2^16[1260 deg/2^16]	rad/s  [deg/sec]	X angular rate Corrected
+            8	yRateCorrected	I2	7*pi/2^16 [1260 deg/2^16]	rad/s  [deg/sec]	Y angular rate Corrected
+            10	zRateCorrected	I2	7*pi/2^16 [1260 deg/2^16]	rad/s  [deg/sec]	Z angular rate Corrected
+            12	xAccel	I2	20/2^16	g	X accelerometer
+            14	yAccel	I2	20/2^16	g	Y accelerometer
+            16	zAccel	I2	20/2^16	g	Z accelerometer
+            18	xMag	I2	2/2^16	Gauss	X magnetometer
+            20	yMag	I2	2/2^16	Gauss	Y magnetometer
+            22	zMag	I2	2/2^16	Gauss	Z magnetometer
+            24	xRateTemp	I2	200/2^16	Deg C	X rate temperature
+            26	timeITOW	U4	1	ms	DMU ITOW (sync to GPS)
+            30	BITstatus	U2	-	-	Master BIT and Status'''
+
+        angles = [0 for x in range(3)] 
+        for i in range(3):
+            angle_int16 = (256 * payload[2*i] + payload[2*i+1]) - 65535 if 256 * payload[2*i] + payload[2*i+1] > 32767  else  256 * payload[2*i] + payload[2*i+1]
+            angles[i] = (360.0 * angle_int16) / math.pow(2,16) 
+
+        gyros = [0 for x in range(3)] 
+        for i in range(3):
+            gyro_int16 = (256 * payload[2*i+6] + payload[2*i+7]) - 65535 if 256 * payload[2*i+6] + payload[2*i+7] > 32767  else  256 * payload[2*i+6] + payload[2*i+7]
+            gyros[i] = (1260 * gyro_int16) / math.pow(2,16) 
+
+        accels = [0 for x in range(3)] 
+        for i in range(3):
+            accel_int16 = (256 * payload[2*i+12] + payload[2*i+13]) - 65535 if 256 * payload[2*i+12] + payload[2*i+13] > 32767  else  256 * payload[2*i+12] + payload[2*i+13]
+            accels[i] = (9.80665 * 20 * accel_int16) / math.pow(2,16)
+        
+        mags = [0 for x in range(3)] 
+        for i in range(3):
+            mag_int16 = (256 * payload[2*i+18] + payload[2*i+19]) - 65535 if 256 * payload[2*i+18] + payload[2*i+19] > 32767  else  256 * payload[2*i+18] + payload[2*i+19]
+            mags[i] = (2 * mag_int16) / math.pow(2,16) 
+
+        temp = [0 for x in range(3)] # compatible with A2
+        temp_int16 = (256 * payload[2*i+24] + payload[2*i+25]) - 65535 if 256 * payload[2*i+24] + payload[2*i+25] > 32767  else  256 * payload[2*i+24] + payload[2*i+25]
+        temp[0] = (200 * temp_int16) / math.pow(2,16)
+    
+        # Counter Value
+        itow = 16777216 * payload[26] + 65536 * payload[27] + 256 * payload[28] + payload[29]   
+
+        # BIT Value
+        bit = 256 * payload[30] + payload[31]
+            
+        return angles, gyros, accels, temp, itow, bit
 
     def parse_A2(self, payload):
         '''A2 Payload Contents
@@ -341,7 +399,7 @@ class imu38x:
         ypr = data[2:5]
         corrected_w = data[5:8]
         corrected_a = data[8:11]
-        return itow, ypr, corrected_w, corrected_a
+        return ypr, corrected_w, corrected_a, itow
 
     def sync_packet(self, bf, bf_len, header):
         idx = -1
@@ -388,6 +446,6 @@ class imu38x:
 
 if __name__ == "__main__":
     port = 'COM7'
-    baud = 38400
-    unit = imu38x(port, baud, packet_type='S1', pipe=None)
+    baud = 115200
+    unit = imu38x(port, baud, packet_type='a2', pipe=None)
     unit.start()

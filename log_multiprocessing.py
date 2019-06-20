@@ -21,7 +21,7 @@ PORT = 10600
 network = '<broadcast>'
 
 def log_new(port, baud, pipe):
-    new_unit = imu38x.imu38x(port, baud, pipe=pipe)
+    new_unit = imu38x.imu38x(port, baud, 'A1', pipe=pipe)
     new_unit.start()
 
 def log_old(port, baud, pipe):
@@ -58,12 +58,12 @@ def get_com_ports():
 
 if __name__ == "__main__":
     # find ports
-    new_port = 'COM17'
-    old_port = 'COM20'
-    ref_port = 'COM19'
-    if not enable_ref:
-        [new_port, old_port] = get_com_ports()
-        ref_port = None
+    new_port = 'COM7'
+    old_port = 'COM30'
+    ref_port = None
+    # if not enable_ref:
+    #     [new_port, old_port] = get_com_ports()
+    #     ref_port = None
     print('%s is the unit with the new algorthm' % new_port)
     print('%s is the unit with the old algorthm' % old_port)
     print('%s is the ref unit' % ref_port)    
@@ -114,21 +114,23 @@ if __name__ == "__main__":
             latest_ref[2] = latest_ref[2] * attitude.R2D
             # print(latest_ref)
         # print(d1)
-        lines = "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %e, %e, %e\n" % (\
+        lines = "%f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %e, %e, %e, %f, %f, %f, %f, %f, %f\n" % (\
                 time_interval,\
                 latest_new[0][0], latest_new[0][1], latest_new[0][2],\
                 latest_old[0][0], latest_old[0][1], latest_old[0][2],\
                 latest_ref[2], latest_ref[1], latest_ref[0],\
                 latest_new[1][0], latest_new[1][1], latest_new[1][2],\
                 latest_new[2][0], latest_new[2][1], latest_new[2][2],\
-                latest_new[3][0], latest_new[3][1], latest_new[3][2])
+                latest_new[2][0], latest_new[2][1], latest_new[2][2],\
+                latest_old[1][0], latest_old[1][1], latest_old[1][2],\
+                latest_old[2][0], latest_old[2][1], latest_old[2][2])
         f.write(lines)
         f.flush()
         # udp
         packed_data = struct.pack('dddddddddd', latest_new[0][0], latest_new[0][1],\
                                     latest_old[0][0], latest_old[0][1],\
                                     latest_ref[2], latest_ref[1],\
-                                    latest_new[3][0], latest_new[3][1], latest_new[3][2],\
+                                    latest_new[2][0], latest_new[2][1], latest_new[2][2],\
                                     latest_new[2][0]
                                     )
         s.sendto(packed_data, (network, PORT))

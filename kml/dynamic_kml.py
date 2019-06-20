@@ -69,7 +69,9 @@ def gen_kml(kml_file, lla, heading, color='ffff0000'):
     f.close()
 
 if __name__ == "__main__":
-    kml_file = 'D:\MyDocuments\desktop\poly.kml'
-    lla = np.array([[31.5,120.4,9.0], [31.6,120.5,9.0]])
-    heading = np.array([0, 90])
+    kml_file = 'D:/MyDocuments/desktop/poly.kml'
+    data_file = 'E:/MatlabWork/DMU380/ins_algo_debug/tmp.csv'
+    data = np.genfromtxt(data_file, delimiter=',', skip_header=1)
+    lla = data[:, 4:7]
+    heading = data[:,-1]
     gen_kml(kml_file, lla, heading)
