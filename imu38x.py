@@ -68,11 +68,12 @@ class imu38x:
             self.open = False
             print('Unsupported packet type: %s'% packet_type)
 
-    def start(self):
+    def start(self, reset=False):
         if self.open:
             bf = bytearray(self.size*2)
             n_bytes = 0
-            self.ser.write(reset_command)
+            if reset is True:
+                self.ser.write(reset_command)
             self.ser.reset_input_buffer()
             while True:
                 data = self.ser.read(self.size)
