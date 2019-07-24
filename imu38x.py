@@ -24,8 +24,11 @@ z1_header = bytearray.fromhex('7a31')
 # a2 packet
 a2_size = 55
 a2_header = bytearray.fromhex('6132')
+# id packet
+id_size = 154
+id_header = bytearray.fromhex('6964')
 # e2 packet
-e2_size = 154
+e2_size = 130
 e2_header = bytearray.fromhex('6532')
 
 reset_command = bytearray.fromhex('5555725300FC88')
@@ -58,12 +61,15 @@ class imu38x:
         elif packet_type == 'z1':
             self.header = z1_header
             self.size = z1_size
-        elif packet_type == 'e2':
-            self.header = e2_header
-            self.size = e2_size
+        elif packet_type == 'id':
+            self.header = id_header
+            self.size = id_size
         elif packet_type == 'a2':
             self.header = a2_header
             self.size = a2_size
+        elif packet_type == 'e2':
+            self.header = e2_header
+            self.size = e2_size
         else:
             self.open = False
             print('Unsupported packet type: %s'% packet_type)
@@ -126,10 +132,12 @@ class imu38x:
             data = self.parse_S1(payload[3::])
         elif payload[0] == z1_header[0] and payload[1] == z1_header[1]:
             data = self.parse_z1(payload[3::])
-        elif payload[0] == e2_header[0] and payload[1] == e2_header[1]:
-            data = self.parse_e2(payload[3::])
+        elif payload[0] == id_header[0] and payload[1] == id_header[1]:
+            data = self.parse_id(payload[3::])
         elif payload[0] == a2_header[0] and payload[1] == a2_header[1]:
             data = self.parse_a2(payload[3::])
+        elif payload[0] == e2_header[0] and payload[1] == e2_header[1]:
+            data = self.parse_e2(payload[3::])
         else:
             print('Unsupported packet type: %s'% payload[0:2])
         return data
@@ -325,9 +333,9 @@ class imu38x:
         gyro = data[4:7]
         return timer, acc, gyro
 
-    def parse_e2(self, payload):
+    def parse_id(self, payload):
         '''
-        parse e2 packet.
+        parse id packet.
         The payload length (NumOfBytes) is based on the following:
             1 uint32_t (4 bytes) =   4 bytes   timer
             1 float  (4 bytes)   =   4 bytes   GPS heading
@@ -380,6 +388,55 @@ class imu38x:
         turn_sw = data[32]
         return timer, gps_itow, acc, gyro, lla, velocity, euler,\
             gps_lla, gps_velocity, gps_heading, acc_bias, turn_sw
+
+    def parse_e2(self, payload):
+        '''
+        parse e2 packet.
+        The payload length (NumOfBytes) is based on the following:
+                1 uint32_t (4 bytes) =   4 bytes   timer
+                1 double (8 bytes)   =   8 bytes   timer(double)
+                3 floats (4 bytes)   =  12 bytes   ea
+                3 floats (4 bytes)   =  12 bytes   a
+                3 floats (4 bytes)   =  12 bytes   aBias
+                3 floats (4 bytes)   =  12 bytes   w
+                3 floats (4 bytes)   =  12 bytes   wBias
+                3 floats (4 bytes)   =  12 bytes   v
+                3 floats (4 bytes)   =  12 bytes   m
+                3 double (8 bytes)   =  24 bytes   lla
+                1 uint8_t (1 byte)   =   1 bytes
+                1 uint8_t (1 byte)   =   1 bytes
+                1 uint8_t (1 byte)   =   1 bytes
+                =================================
+                          NumOfBytes = 123 bytes
+        '''
+        fmt = '=I'          # timer
+        fmt += 'd'          # time double
+        fmt += 'fff'        # Euler angles
+        fmt += 'fff'        # accel
+        fmt += 'fff'        # accel bias
+        fmt += 'fff'        # gyro
+        fmt += 'fff'        # gyro bias
+        fmt += 'fff'        # velocity
+        fmt += 'fff'        # mag
+        fmt += 'ddd'        # lla
+        fmt += 'B'          # opMode
+        fmt += 'B'          # linAccelSw
+        fmt += 'B'          # turnSw
+        data = struct.unpack(fmt, payload)
+        timer = data[0]
+        euler = data[2:5]
+        acc = data[5:8]
+        acc_bias = data[8:11]
+        gyro = data[11:14]
+        gyro_bias = data[14:17]
+        velocity = data[17:20]
+        mag = data[20:23]
+        lla = data[23:26]
+        op_mode = data[26]
+        lin_accel_sw = data[27]
+        turn_sw = data[28]
+        return timer, 0, acc, gyro, lla, velocity, euler,\
+            (0,0,0), (0,0,0), 0, acc_bias, turn_sw
 
     def parse_a2(self, payload):
         #   1 uint32_t (4 bytes) = 4 bytes,     itow
