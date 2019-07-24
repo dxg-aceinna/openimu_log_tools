@@ -59,9 +59,11 @@ def gen_kml(kml_file, lla, heading, color='ffff0000'):
         lines = (kmlstr_body)% (heading, lla[1], lla[0], lla[2])
         f.write(lines)
     else:
-        max_points = 4000.0
+        max_points = 8000.0
         step = int(math.ceil(lla.shape[0]/max_points))
         for i in range(0, lla.shape[0], step):
+            if lla[i][2] < 0:
+                lla[i][2] = 0
             lines = (kmlstr_body)% (heading[i], lla[i][1], lla[i][0], lla[i][2])
             f.write(lines)
     # write end
