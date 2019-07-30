@@ -114,7 +114,7 @@ if __name__ == "__main__":
     f = open(data_file, 'w+')
     f.truncate()
     headerline = "recv_interval (s), openimu timer,"
-    headerline += "ax (m/s2), ay (m/s2), az (m/s2),"
+    headerline += "ax (g), ay (g), az (g),"
     headerline += "wx (deg/s), wy (deg/s), wz (deg/s),"
     headerline += "Lat (deg), Lon (deg), Alt (m),"
     headerline += "vN (m/s), vE (m/s), vD (m/s),"
