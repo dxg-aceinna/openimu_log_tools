@@ -15,7 +15,7 @@ import post_proccess_for_ins_test
 #### INS381
 ins381_unit = {'port':'COM7',\
             'baud':230400,\
-            'packet_type':'e2',\
+            'packet_type':'id',\
             'unit_type':'imu38x',\
             # 'orientation':'-y+x+z',\
             'enable':True}
