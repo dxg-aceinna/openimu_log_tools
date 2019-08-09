@@ -26,6 +26,11 @@ kmlstr_body = '''
       <Point>
          <coordinates>%.9f,%.9f,%f</coordinates>
       </Point>
+      <ExtendedData>
+         <Data name="Index">
+         <value>%d</value>
+         </Data>
+      </ExtendedData>
    </Placemark>'''
 kmlstr_end = '''
 </Document>
@@ -56,7 +61,7 @@ def gen_kml(kml_file, lla, heading, color='ffff0000'):
     # write data
     ndim = lla.ndim
     if ndim == 1:
-        lines = (kmlstr_body)% (heading, lla[1], lla[0], lla[2])
+        lines = (kmlstr_body)% (heading, lla[1], lla[0], lla[2], 0)
         f.write(lines)
     else:
         max_points = 8000.0
@@ -64,7 +69,7 @@ def gen_kml(kml_file, lla, heading, color='ffff0000'):
         for i in range(0, lla.shape[0], step):
             if lla[i][2] < 0:
                 lla[i][2] = 0
-            lines = (kmlstr_body)% (heading[i], lla[i][1], lla[i][0], lla[i][2])
+            lines = (kmlstr_body)% (heading[i], lla[i][1], lla[i][0], lla[i][2], i)
             f.write(lines)
     # write end
     f.write(kmlstr_end)
