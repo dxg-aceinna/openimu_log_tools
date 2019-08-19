@@ -88,7 +88,7 @@ if __name__ == "__main__":
     #### create pipes
     # ins381
     if ins381_unit['enable']:
-        print('connecting to the unti with NXP accel...')
+        print('connecting to the unit with NXP accel...')
         parent_conn_nxp, child_conn_nxp = Pipe()
         process_target = log_imu38x
         p_ins381 = Process(target=process_target,\

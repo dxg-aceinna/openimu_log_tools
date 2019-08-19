@@ -76,9 +76,9 @@ def gen_kml(kml_file, lla, heading, color='ffff0000'):
     f.close()
 
 if __name__ == "__main__":
-    kml_file = 'D:/MyDocuments/desktop/poly.kml'
-    data_file = 'E:/MatlabWork/DMU380/ins_algo_debug/tmp.csv'
+    kml_file = 'D:/MyDocuments/desktop/novatel.kml'
+    data_file = 'D:/MyDocuments/desktop/novatel vs openimu/20190816/Novatel-2019_08_16_15_28_35.csv'
     data = np.genfromtxt(data_file, delimiter=',', skip_header=1)
-    lla = data[:, 4:7]
+    lla = data[:, 0:3]
     heading = data[:,-1]
-    gen_kml(kml_file, lla, heading)
+    gen_kml(kml_file, lla, heading, 'ffff0000')
