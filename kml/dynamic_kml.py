@@ -37,7 +37,7 @@ kmlstr_end = '''
 </kml>
 '''
 
-def gen_kml(kml_file, lla, heading, color='ffff0000'):
+def gen_kml(kml_file, lla, heading=None, color='ffff0000'):
     '''
     generate kml file.
     Args:
@@ -61,7 +61,10 @@ def gen_kml(kml_file, lla, heading, color='ffff0000'):
     # write data
     ndim = lla.ndim
     if ndim == 1:
-        lines = (kmlstr_body)% (heading, lla[1], lla[0], lla[2], 0)
+        if heading is None:
+            lines = (kmlstr_body)% (0, lla[1], lla[0], lla[2], 0)
+        else:
+            lines = (kmlstr_body)% (heading, lla[1], lla[0], lla[2], 0)
         f.write(lines)
     else:
         max_points = 8000.0
@@ -69,16 +72,25 @@ def gen_kml(kml_file, lla, heading, color='ffff0000'):
         for i in range(0, lla.shape[0], step):
             if lla[i][2] < 0:
                 lla[i][2] = 0
-            lines = (kmlstr_body)% (heading[i], lla[i][1], lla[i][0], lla[i][2], i)
+            if heading is None:
+                lines = (kmlstr_body)% (0, lla[i][1], lla[i][0], lla[i][2], i)
+            else:
+                lines = (kmlstr_body)% (heading[i], lla[i][1], lla[i][0], lla[i][2], i)
             f.write(lines)
     # write end
     f.write(kmlstr_end)
     f.close()
 
 if __name__ == "__main__":
-    kml_file = 'D:/MyDocuments/desktop/novatel.kml'
-    data_file = 'D:/MyDocuments/desktop/novatel vs openimu/20190816/Novatel-2019_08_16_15_28_35.csv'
-    data = np.genfromtxt(data_file, delimiter=',', skip_header=1)
+    data_file = 'D:/MyDocuments/desktop/new 1.txt'
+    data = np.genfromtxt(data_file, delimiter=',', skip_header=0)
+    kml_file = 'D:/MyDocuments/desktop/a.kml'
     lla = data[:, 0:3]
-    heading = data[:,-1]
-    gen_kml(kml_file, lla, heading, 'ffff0000')
+    lla[:, 0] *= 180.0/math.pi
+    lla[:, 1] *= 180.0/math.pi
+    gen_kml(kml_file, lla, color='ff0000ff')
+    kml_file = 'D:/MyDocuments/desktop/b.kml'
+    lla = data[:, 3:6]
+    lla[:, 0] *= 180.0/math.pi
+    lla[:, 1] *= 180.0/math.pi
+    gen_kml(kml_file, lla, data[:,6], color='ffff0000')
