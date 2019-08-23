@@ -384,10 +384,10 @@ class imu38x:
         lla = data[24:27]
         gps_lla = data[27:30]
         op_mode = data[30]
-        lin_accel_sw = data[31]
-        turn_sw = data[32]
+        lin_accel_sw = data[31] # replaced with num of satellites
+        turn_sw = data[32]      # replaced with turnSw, fix_type and gps update
         return timer, gps_itow, acc, gyro, lla, velocity, euler,\
-            gps_lla, gps_velocity, gps_heading, acc_bias, turn_sw
+            gps_lla, gps_velocity, gps_heading, acc_bias, turn_sw, lin_accel_sw
 
     def parse_e2(self, payload):
         '''
@@ -436,7 +436,7 @@ class imu38x:
         lin_accel_sw = data[27]
         turn_sw = data[28]
         return timer, 0, acc, gyro, lla, velocity, euler,\
-            (0,0,0), (0,0,0), 0, acc_bias, turn_sw
+            (0,0,0), (0,0,0), 0, acc_bias, turn_sw, lin_accel_sw
 
     def parse_a2(self, payload):
         #   1 uint32_t (4 bytes) = 4 bytes,     itow

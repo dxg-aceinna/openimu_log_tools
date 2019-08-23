@@ -113,7 +113,7 @@ if __name__ == "__main__":
     data_file = log_dir + log_file
     f = open(data_file, 'w+')
     f.truncate()
-    headerline = "recv_interval (s), openimu timer,"
+    headerline = "itow (s), openimu timer,"
     headerline += "ax (g), ay (g), az (g),"
     headerline += "wx (deg/s), wy (deg/s), wz (deg/s),"
     headerline += "Lat (deg), Lon (deg), Alt (m),"
@@ -122,7 +122,7 @@ if __name__ == "__main__":
     headerline += "ref_Lat (deg), ref_Lon (deg), ref_Alt (m),"
     headerline += "ref_vN (m/s), ref_vE (m/s), ref_vD (m/s),"
     headerline += "ref_roll (deg), ref_pitch (deg), ref_yaw (deg),"
-    headerline += "hdop, hAcc, vAcc, gps_update, gps_valid\n"
+    headerline += "hdop, hAcc, vAcc, gps_update, fix_type, num_sat\n"
     f.write(headerline)
     f.flush()
 
@@ -143,7 +143,8 @@ if __name__ == "__main__":
     ref_euler = np.zeros((3,))
     ref_accuracy = np.zeros((3,))
     gps_update = 0
-    gps_valid = 0
+    fix_type = 0
+    num_sat = 0
     # logging
     counter = 0
     try:
@@ -188,7 +189,8 @@ if __name__ == "__main__":
                 ref_euler[0] = latest_ins381[9]
                 ref_accuracy = np.array(latest_ins381[10])
                 gps_update = latest_ins381[11] & 0x01
-                gps_valid = (latest_ins381[11] >>1 ) & 0x01
+                fix_type = (latest_ins381[11] >>1 ) & 0x0F
+                num_sat = latest_ins381[12]
 
             # 5. log data to file
             fmt = "%u, %u, "                    # itow, packet timer
@@ -196,7 +198,7 @@ if __name__ == "__main__":
             fmt += "%.9f, %.9f, %f, %f, %f, %f, %f, %f, %f, " # ins381 lla/vel/euler
             fmt += "%.9f, %.9f, %.9f, %.9f, %.9f, %.9f, %.9f, %.9f, %.9f, " # ref lla/vel/euler
             fmt += "%.9f, %.9f, %.9f, "     # ref accuracy (hdop, horizontal/vertical accuracy)
-            fmt += "%u, %u\n"               # gps_update, gps_valid
+            fmt += "%u, %u, %u\n"           # gps_update, fix_type, num_sat
             lines = fmt% (\
                             gps_itow, ins381_timer,\
                             ins381_acc[0], ins381_acc[1], ins381_acc[2],\
@@ -208,7 +210,7 @@ if __name__ == "__main__":
                             ref_vel[0], ref_vel[1], ref_vel[2],\
                             ref_euler[2], ref_euler[1], ref_euler[0],\
                             ref_accuracy[0], ref_accuracy[1], ref_accuracy[2],\
-                            gps_update, gps_valid)
+                            gps_update, fix_type, num_sat)
             f.write(lines)
             f.flush()
             counter += 1
