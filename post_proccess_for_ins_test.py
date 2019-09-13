@@ -49,4 +49,5 @@ def post_processing(data_file):
 if __name__ == "__main__":
     # data_file = "E:\\Projects\\python-imu380-mult\\log_data\\ins\\log-20190702-drive-2 - backdrive.csv"
     data_file = "E:\\vs_projects\\dmu380_offline_sim-ins\\sim_app\\x64\\Debug\\results.csv"
+    # data_file = "D:\\MyDocuments\\desktop\\新建文件夹\\log-2019_09_12_10_09_54.csv"
     post_processing(data_file)
