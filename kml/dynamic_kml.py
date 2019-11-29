@@ -82,10 +82,9 @@ def gen_kml(kml_file, lla, heading=None, color='ffff0000'):
     f.close()
 
 if __name__ == "__main__":
-    data_file = "D:\\MyDocuments\\desktop\\新建文件夹\\novatel-2019_09_12_10_26_08.csv"
+    data_file = "E:\\vs_projects\\dmu380_offline_sim-ins\\sim_app\\x64\\Release\\log.txt"
     data = np.genfromtxt(data_file, delimiter=',', skip_header=0)
     kml_file = 'D:/MyDocuments/desktop/a.kml'
-    lla = data[:, 0:3]
-    heading = data[:,-1]
-    gen_kml(kml_file, lla, heading, color='ffffff00')
-    
+    lla = data[:, 3:6]
+    heading = data[:,11]
+    gen_kml(kml_file, lla, heading, color='fff0f000')

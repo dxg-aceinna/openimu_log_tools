@@ -333,7 +333,7 @@ class imu38x:
         gps_lla = data[27:30]
         op_mode = data[30]
         lin_accel_sw = data[31] # replaced with num of satellites
-        turn_sw = data[32]      # replaced with turnSw, fix_type and gps update
+        turn_sw = data[32]      # replaced with turnSw, pps, fix_type and gps update
         return timer, gps_itow, acc, gyro, lla, velocity, euler,\
             gps_lla, gps_velocity, gps_heading, acc_bias, turn_sw, lin_accel_sw
 

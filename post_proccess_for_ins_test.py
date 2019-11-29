@@ -43,11 +43,11 @@ def post_processing(data_file):
     file_name = data_dir + 'ref_pos.kml'
     kml.gen_kml(file_name, ref_lla, ref_euler[:,2], 'ff0000ff')
     file_name = data_dir + 'pos-1.kml'
-    kml.gen_kml(file_name, lla, euler[:,2], 'ff00ff00')
+    kml.gen_kml(file_name, lla, euler[:,2], 'ffff0000')
     
 
 if __name__ == "__main__":
-    # data_file = "E:\\Projects\\python-imu380-mult\\log_data\\ins\\log-20190702-drive-2 - backdrive.csv"
-    data_file = "E:\\vs_projects\\dmu380_offline_sim-ins\\sim_app\\x64\\Debug\\results.csv"
+    # data_file = "E:\\Projects\\python-imu380-mult\\log_data\\log.csv"
+    data_file = "E:\\vs_projects\\dmu380_offline_sim-ins\\sim_data\\results.csv"
     # data_file = "D:\\MyDocuments\\desktop\\新建文件夹\\log-2019_09_12_10_09_54.csv"
     post_processing(data_file)

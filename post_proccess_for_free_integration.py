@@ -85,6 +85,8 @@ def gen_sim_files(gyro, acc, lla, vel, euler, idx0, dir):
     if acc_ini_att:
         ini_euler[1] = -math.asin(unit_gravity[0]) * attitude.R2D
         ini_euler[2] = math.atan2(unit_gravity[1], unit_gravity[2]) * attitude.R2D
+        euler[:, 1] = ini_euler[1]
+        euler[:, 2] = ini_euler[2]
     # initial vel
     if zero_ini_vel:
         ini_vel = np.zeros((3,))
