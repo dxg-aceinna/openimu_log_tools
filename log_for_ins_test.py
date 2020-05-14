@@ -33,7 +33,7 @@ enable_kml = True
 
 def log_imu38x(port, baud, packet, pipe):
     imu38x_unit = imu38x.imu38x(port, baud, packet_type=packet, pipe=pipe)
-    imu38x_unit.start(reset=True)
+    imu38x_unit.start(reset=True, reset_cmd='55555352007E4F')
 
 def log_ins1000(port, baud, pipe):
     ins = ins1000.ins1000(port, baud, pipe)
@@ -113,15 +113,15 @@ if __name__ == "__main__":
     data_file = log_dir + log_file
     f = open(data_file, 'w+')
     f.truncate()
-    headerline = "itow (s), openimu timer,"
-    headerline += "ax (g), ay (g), az (g),"
-    headerline += "wx (deg/s), wy (deg/s), wz (deg/s),"
-    headerline += "Lat (deg), Lon (deg), Alt (m),"
-    headerline += "vN (m/s), vE (m/s), vD (m/s),"
-    headerline += "roll (deg), pitch (deg), yaw (deg),"
-    headerline += "ref_Lat (deg), ref_Lon (deg), ref_Alt (m),"
-    headerline += "ref_vN (m/s), ref_vE (m/s), ref_vD (m/s),"
-    headerline += "ref_roll (deg), ref_pitch (deg), ref_yaw (deg),"
+    headerline = "itow (s), openimu timer, "
+    headerline += "ax (g), ay (g), az (g), "
+    headerline += "wx (deg/s), wy (deg/s), wz (deg/s), "
+    headerline += "Lat (deg), Lon (deg), Alt (m), "
+    headerline += "vN (m/s), vE (m/s), vD (m/s), "
+    headerline += "roll (deg), pitch (deg), yaw (deg), "
+    headerline += "ref_Lat (deg), ref_Lon (deg), ref_Alt (m), "
+    headerline += "ref_vN (m/s), ref_vE (m/s), ref_vD (m/s), "
+    headerline += "ref_roll (deg), ref_pitch (deg), ref_yaw (deg), "
     headerline += "hdop, hAcc, vAcc, gps_update, fix_type, num_sat, pps\n"
     f.write(headerline)
     f.flush()

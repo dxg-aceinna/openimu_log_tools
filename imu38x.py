@@ -14,8 +14,6 @@ packet_def = {'A1': [39, bytearray.fromhex('4131')],\
               'e1': [82, bytearray.fromhex('6531')],\
               'e2': [130, bytearray.fromhex('6532')],\
               'id': [154, bytearray.fromhex('6964')]}
-# openimu reset command
-reset_command = bytearray.fromhex('5555725300FC88')
 
 class imu38x:
     def __init__(self, port, baud=115200, packet_type='A2', pipe=None):
@@ -40,12 +38,12 @@ class imu38x:
             self.open = False
             print('Unsupported packet type: %s'% packet_type)
 
-    def start(self, reset=False):
+    def start(self, reset=False, reset_cmd='5555725300FC88'):
         if self.open:
             bf = bytearray(self.size*2)
             n_bytes = 0
             if reset is True:
-                self.ser.write(reset_command)
+                self.ser.write(bytearray.fromhex(reset_cmd))
             self.ser.reset_input_buffer()
             while True:
                 data = self.ser.read(self.size)
