@@ -13,7 +13,7 @@ import kml.dynamic_kml as kml
 import post_proccess_for_ins_test
 
 #### INS381
-ins381_unit = {'port':'COM7',\
+ins381_unit = {'port':'COM15',\
             'baud':230400,\
             'packet_type':'id',\
             'unit_type':'imu38x',\
@@ -25,10 +25,12 @@ ins1000_unit = {'port':'COM15',\
                 'packet_type':'nav',\
                 'unit_type':'ins1000',\
                 'enable':False}
-
+# log file
 log_dir = './log_data/'
 log_file = 'log.csv'
-
+# log duration
+log_duraton = 60    #float("inf")
+# dynamic kml
 enable_kml = True
 
 def log_imu38x(port, baud, packet, pipe):
@@ -76,6 +78,17 @@ def orientation(data, ori):
             sgn_x * data[idx_x], sgn_y * data[idx_y], sgn_z * data[idx_z]
     return data
 
+def end_log(f, p_ins381, p_ins1000):
+    print("Stop logging, preparing data for simulation...")
+    f.close()
+    if ins381_unit['enable']:
+        p_ins381.terminate()
+        p_ins381.join()
+    if ins1000_unit['enable']:
+        p_ins1000.terminate()
+        p_ins1000.join()
+    post_proccess_for_ins_test.post_processing(data_file)
+
 if __name__ == "__main__":
     #### find ports
     if not ins381_unit['enable']:
@@ -97,6 +110,8 @@ if __name__ == "__main__":
                        )
         p_ins381.daemon = True
         p_ins381.start()
+    else:
+        p_ins381 = None
 
     # ins1000
     if ins1000_unit['enable']:
@@ -108,6 +123,8 @@ if __name__ == "__main__":
                            )
         p_ins1000.daemon = True
         p_ins1000.start()
+    else:
+        p_ins1000 = None
 
     #### create log file
     data_file = log_dir + log_file
@@ -148,12 +165,18 @@ if __name__ == "__main__":
     pps = 0
     # logging
     counter = 0
+    log_start_time = time.time()
     try:
         while True:
             # 1. timer interval
             tnow = time.time()
             time_interval = tnow-tstart
             tstart = tnow
+            # only log for 1min
+            if tnow - log_start_time > log_duraton:
+                print("Data is logged for " + str(log_duraton) + " seconds.")
+                end_log(f, p_ins381, p_ins1000)
+                exit()
             # 2. INS381, timer, acc and gyro, lla, vel, Euler angles
             if ins381_unit['enable']:
                 latest_ins381 = parent_conn_nxp.recv()
@@ -190,8 +213,8 @@ if __name__ == "__main__":
                 ref_euler[0] = latest_ins381[9]
                 ref_accuracy = np.array(latest_ins381[10])
                 gps_update = latest_ins381[11] & 0x01
-                fix_type = (latest_ins381[11] >> 1 ) & 0x01
-                pps = (latest_ins381[11] >> 2) & 0x01
+                fix_type = (latest_ins381[11] >> 1 ) & 0x0f
+                pps = (latest_ins381[11] >> 5) & 0x01
                 num_sat = latest_ins381[12]
 
             # 5. log data to file
@@ -213,6 +236,7 @@ if __name__ == "__main__":
                             ref_euler[2], ref_euler[1], ref_euler[0],\
                             ref_accuracy[0], ref_accuracy[1], ref_accuracy[2],\
                             gps_update, fix_type, num_sat, pps)
+            print(ins381_lla, fix_type, num_sat, gps_update, pps, gps_itow)
             f.write(lines)
             f.flush()
             counter += 1
@@ -221,12 +245,4 @@ if __name__ == "__main__":
                 kml.gen_kml('./kml/ins381.kml', ins381_lla, ins381_euler[2], 'ffff0000')
                 kml.gen_kml('./kml/ins1000.kml', ref_lla, ref_euler[0], 'ff0000ff')
     except KeyboardInterrupt:
-        print("Stop logging, preparing data for simulation...")
-        f.close()
-        if ins381_unit['enable']:
-            p_ins381.terminate()
-            p_ins381.join()
-        if ins1000_unit['enable']:
-            p_ins1000.terminate()
-            p_ins1000.join()
-        post_proccess_for_ins_test.post_processing(data_file)
+        end_log(f, p_ins381, p_ins1000)

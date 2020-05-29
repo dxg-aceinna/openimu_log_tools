@@ -82,9 +82,10 @@ def gen_kml(kml_file, lla, heading=None, color='ffff0000'):
     f.close()
 
 if __name__ == "__main__":
-    data_file = "E:\\vs_projects\\dmu380_offline_sim-ins\\sim_app\\x64\\Release\\log.txt"
+    # data_file = "E:\\work_Aceinna\\INS algortihm improvement\\OpenIMU300RI\\drive test\\20200121\\1\\span-ins-sol.csv"
+    data_file = 'D:/MyDocuments/desktop/llah.csv'
     data = np.genfromtxt(data_file, delimiter=',', skip_header=0)
-    kml_file = 'D:/MyDocuments/desktop/a.kml'
-    lla = data[:, 3:6]
-    heading = data[:,11]
-    gen_kml(kml_file, lla, heading, color='fff0f000')
+    kml_file = 'D:/MyDocuments/desktop/RI.kml'
+    lla = data[:, 0:3]
+    heading = data[:,-1]
+    gen_kml(kml_file, lla, heading, color='ffff0000') #fff0f000
