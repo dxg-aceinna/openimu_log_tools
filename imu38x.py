@@ -1,3 +1,4 @@
+import sys
 import math
 import serial
 import serial.tools.list_ports
@@ -61,7 +62,7 @@ class imu38x:
                         # decode
                         if packet_crc == calculated_crc:
                             self.latest = self.parse_packet(bf[2:bf[4]+5])
-                            # print(self.latest[0])
+                            print(self.latest[0])
                             if self.pipe is not None:
                                 self.pipe.send(self.latest)
                             # remove decoded data from the buffer
@@ -490,7 +491,18 @@ class imu38x:
         return crc
 
 if __name__ == "__main__":
+    # default settings
     port = 'COM7'
-    baud = 115200
-    unit = imu38x(port, baud, packet_type='a2', pipe=None)
+    baud = 230400
+    packet_type = 'id'
+    # get settings from CLI
+    num_of_args = len(sys.argv)
+    if num_of_args > 1:
+        port = sys.argv[1]
+        if num_of_args > 2:
+            baud = int(sys.argv[2])
+            if num_of_args > 3:
+                packet_type = sys.argv[3]
+    # run
+    unit = imu38x(port, baud, packet_type, pipe=None)
     unit.start()
