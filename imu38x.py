@@ -18,12 +18,21 @@ packet_def = {'A1': [39, bytearray.fromhex('4131')],\
 
 class imu38x:
     def __init__(self, port, baud=115200, packet_type='A2', pipe=None):
-        '''Initialize and then start ports search and autobaud process
+        '''
+        Initialize and then start ports search and autobaud process
+        If baud <= 0, then port is actually a data file.
         '''
         self.port = port
         self.baud = baud
-        self.ser = serial.Serial(self.port, self.baud)
-        self.open = self.ser.isOpen()
+        # is file or serial port
+        self.physical_port = True
+        if baud > 0:
+            self.ser = serial.Serial(self.port, self.baud)
+            self.open = self.ser.isOpen()
+        else:
+            self.ser = open(port, 'rb')
+            self.open = True
+            self.physical_port = False
         self.latest = []
         self.ready = False
         self.pipe = pipe
@@ -43,12 +52,18 @@ class imu38x:
         if self.open:
             bf = bytearray(self.size*2)
             n_bytes = 0
-            if reset is True:
-                self.ser.write(bytearray.fromhex(reset_cmd))
-            self.ser.reset_input_buffer()
+            # send optional reset command if port is a pysical serial port
+            if self.physical_port:
+                if reset is True:
+                    self.ser.write(bytearray.fromhex(reset_cmd))
+                self.ser.reset_input_buffer()
             while True:
                 data = self.ser.read(self.size)
-                ## parse new
+                # end processing if reaching the end of the data file
+                if not self.physical_port:
+                    if not data:
+                        break
+                ## parse new coming data
                 n = len(data)
                 for i in range(n):
                     bf[n_bytes + i] = data[i]
@@ -62,7 +77,7 @@ class imu38x:
                         # decode
                         if packet_crc == calculated_crc:
                             self.latest = self.parse_packet(bf[2:bf[4]+5])
-                            print(self.latest[0])
+                            # print(self.latest[0])
                             if self.pipe is not None:
                                 self.pipe.send(self.latest)
                             # remove decoded data from the buffer
@@ -79,6 +94,10 @@ class imu38x:
                             n_bytes = self.sync_packet(bf, n_bytes, packet_header)
                     else:
                         n_bytes = self.sync_packet(bf, n_bytes, packet_header)
+            #close port or file
+            self.ser.close()
+            print('End of processing.')
+
     def get_latest(self):
         return self.latest
 

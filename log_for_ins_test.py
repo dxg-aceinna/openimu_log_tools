@@ -29,7 +29,7 @@ ins1000_unit = {'port':'COM15',\
 log_dir = './log_data/'
 log_file = 'log.csv'
 # log duration
-log_duraton = 60    #float("inf")
+log_duraton = float("inf")    #float("inf")
 # dynamic kml
 enable_kml = True
 
