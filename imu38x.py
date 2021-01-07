@@ -86,7 +86,6 @@ class imu38x:
                                 bf[i] = bf[i+self.size]
                         else:
                             print('crc fail: %s %s %s %s'% (self.size, n_bytes, packet_crc, calculated_crc))
-                            print('%s'% bf)
                             print(" ".join("{:02x}".format(bf[i]) for i in range(0, n_bytes)))
                             # remove the first byte from the buffer
                             n_bytes -= 1
