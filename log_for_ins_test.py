@@ -13,7 +13,7 @@ import kml.dynamic_kml as kml
 import post_proccess_for_ins_test
 
 #### INS381
-ins381_unit = {'port':'COM15',\
+ins381_unit = {'port':'COM7',\
             'baud':230400,\
             'packet_type':'id',\
             'unit_type':'imu38x',\
@@ -236,7 +236,7 @@ if __name__ == "__main__":
                             ref_euler[2], ref_euler[1], ref_euler[0],\
                             ref_accuracy[0], ref_accuracy[1], ref_accuracy[2],\
                             gps_update, fix_type, num_sat, pps)
-            print(ins381_lla, fix_type, num_sat, gps_update, pps, gps_itow)
+            # print(ins381_lla, fix_type, num_sat, gps_update, pps, gps_itow)
             f.write(lines)
             f.flush()
             counter += 1
