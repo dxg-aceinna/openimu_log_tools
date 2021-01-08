@@ -2,8 +2,6 @@ import os
 import math
 import threading
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.mlab as mlab
 import attitude
 import kml.dynamic_kml as kml
 
@@ -47,7 +45,7 @@ def post_processing(data_file):
     
 
 if __name__ == "__main__":
-    # data_file = "E:\\Projects\\python-imu380-mult\\log_data\\log.csv"
-    data_file = "E:\\vs_projects\\dmu380_offline_sim-ins\\sim_data\\results.csv"
+    # data_file = "E:\\Projects\\python-imu380-mult\\log_data\\log(2).csv"
+    data_file = "e:\\vs_projects\\dmu380_offline_sim-ins_update\\sim_data\\results.csv"
     # data_file = "D:\\MyDocuments\\desktop\\新建文件夹\\log-2019_09_12_10_09_54.csv"
     post_processing(data_file)
