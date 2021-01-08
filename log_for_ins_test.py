@@ -172,7 +172,7 @@ if __name__ == "__main__":
             tnow = time.time()
             time_interval = tnow-tstart
             tstart = tnow
-            # only log for 1min
+            # only log for a period of time
             if tnow - log_start_time > log_duraton:
                 print("Data is logged for " + str(log_duraton) + " seconds.")
                 end_log(f, p_ins381, p_ins1000)
@@ -180,6 +180,10 @@ if __name__ == "__main__":
             # 2. INS381, timer, acc and gyro, lla, vel, Euler angles
             if ins381_unit['enable']:
                 latest_ins381 = parent_conn_nxp.recv()
+                # exit when receiving exit message
+                if latest_ins381=='exit':
+                    end_log(f, p_ins381, p_ins1000)
+                    exit()
                 ins381_timer = latest_ins381[0]
                 gps_itow = latest_ins381[1]
                 ins381_acc = np.array(latest_ins381[2])
