@@ -1,3 +1,4 @@
+import os
 import sys
 import math
 import serial
@@ -26,6 +27,7 @@ class imu38x:
         self.baud = baud
         # is file or serial port
         self.physical_port = True
+        self.file_size = 0
         if baud > 0:
             self.ser = serial.Serial(self.port, self.baud)
             self.open = self.ser.isOpen()
@@ -33,6 +35,7 @@ class imu38x:
             self.ser = open(port, 'rb')
             self.open = True
             self.physical_port = False
+            self.file_size = os.path.getsize(port)
         self.latest = []
         self.ready = False
         self.pipe = pipe
@@ -47,56 +50,69 @@ class imu38x:
         else:
             self.open = False
             print('Unsupported packet type: %s'% packet_type)
+        # serial data buffer
+        self.bf = bytearray(self.size*2)
+        self.nbf = 0    # how bytes in self.bf
 
     def start(self, reset=False, reset_cmd='5555725300FC88'):
         if self.open:
-            bf = bytearray(self.size*2)
-            n_bytes = 0
             # send optional reset command if port is a pysical serial port
             if self.physical_port:
                 if reset is True:
                     self.ser.write(bytearray.fromhex(reset_cmd))
                 self.ser.reset_input_buffer()
             while True:
-                data = self.ser.read(self.size)
-                # end processing if reaching the end of the data file
-                if not self.physical_port:
-                    if not data:
+                if self.physical_port:
+                    read_size = self.ser.in_waiting
+                else:
+                    read_size = self.file_size
+                data = self.ser.read(read_size)
+                if not data:
+                    # end processing if reaching the end of the data file
+                    if not self.physical_port:
                         break
-                ## parse new coming data
-                n = len(data)
-                for i in range(n):
-                    bf[n_bytes + i] = data[i]
-                n_bytes += n
-                while n_bytes >= self.size:
-                    if bf[0] == packet_header[0] and bf[1] == packet_header[1] and\
-                       bf[2] == self.header[0] and bf[3] == self.header[1]:
-                        # crc
-                        packet_crc = 256 * bf[self.size-2] + bf[self.size-1]
-                        calculated_crc = self.calc_crc(bf[2:bf[4]+5])
-                        # decode
-                        if packet_crc == calculated_crc:
-                            self.latest = self.parse_packet(bf[2:bf[4]+5])
-                            # print(self.latest[0])
-                            if self.pipe is not None:
-                                self.pipe.send(self.latest)
-                            # remove decoded data from the buffer
-                            n_bytes -= self.size
-                            for i in range(n_bytes):
-                                bf[i] = bf[i+self.size]
-                        else:
-                            print('crc fail: %s %s %s %s'% (self.size, n_bytes, packet_crc, calculated_crc))
-                            print(" ".join("{:02x}".format(bf[i]) for i in range(0, n_bytes)))
-                            # remove the first byte from the buffer
-                            n_bytes -= 1
-                            for i in range(n_bytes):
-                                bf[i] = bf[i+1]
-                            n_bytes = self.sync_packet(bf, n_bytes, packet_header)
-                    else:
-                        n_bytes = self.sync_packet(bf, n_bytes, packet_header)
+                else:
+                    # parse new coming data
+                    self.parse_new_data(data)
             #close port or file
             self.ser.close()
             print('End of processing.')
+            self.pipe.send('exit')
+
+    def parse_new_data(self, data):
+        '''
+        add new data in the buffer
+        '''
+        n = len(data)
+        for i in range(n):
+            self.bf[self.nbf] = data[i]
+            self.nbf += 1
+            while self.nbf >= self.size:
+                if self.bf[0] == packet_header[0] and self.bf[1] == packet_header[1] and\
+                    self.bf[2] == self.header[0] and self.bf[3] == self.header[1]:
+                    # crc
+                    packet_crc = 256 * self.bf[self.size-2] + self.bf[self.size-1]
+                    calculated_crc = self.calc_crc(self.bf[2:self.bf[4]+5])
+                    # decode
+                    if packet_crc == calculated_crc:
+                        self.latest = self.parse_packet(self.bf[2:self.bf[4]+5])
+                        # print(self.latest[0])
+                        if self.pipe is not None:
+                            self.pipe.send(self.latest)
+                        # remove decoded data from the buffer
+                        self.nbf -= self.size
+                        for i in range(self.nbf):
+                            self.bf[i] = self.bf[i+self.size]
+                    else:
+                        print('crc fail: %s %s %s %s'% (self.size, self.nbf, packet_crc, calculated_crc))
+                        print(" ".join("{:02X}".format(self.bf[i]) for i in range(0, self.nbf)))
+                        # remove the first byte from the buffer
+                        self.nbf -= 1
+                        for i in range(self.nbf):
+                            self.bf[i] = self.bf[i+1]
+                        self.nbf = self.sync_packet(self.bf, self.nbf, packet_header)
+                else:
+                    self.nbf = self.sync_packet(self.bf, self.nbf, packet_header)
 
     def get_latest(self):
         return self.latest
