@@ -29,7 +29,7 @@ ser.reset_input_buffer()
 
 # get serail data and write into the log file
 try:
-    print("Start logging.")
+    print("Start logging at %s."%time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     while True:
         if ser.in_waiting:
             # print(ser.in_waiting)
@@ -37,7 +37,6 @@ try:
             f.write(data)
         else:
             time.sleep(0.001)
-            
 except KeyboardInterrupt:
     print('End logging')
     ser.close()

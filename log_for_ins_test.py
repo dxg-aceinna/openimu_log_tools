@@ -3,7 +3,6 @@ import serial
 import serial.tools.list_ports
 from multiprocessing import Process, Pipe, Array
 import time
-import struct
 import numpy as np
 import attitude
 import openimu
