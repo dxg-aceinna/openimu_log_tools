@@ -5,12 +5,15 @@ import serial
 import serial.tools.list_ports
 import struct
 
-packet_header = bytearray.fromhex('5555')
+preamble = bytearray.fromhex('5555')
 # payload + 2-byte header + 2-byte type + 1-byte len + 2-byte crc
 packet_def = {'A1': [39, bytearray.fromhex('4131')],\
               'A2': [37, bytearray.fromhex('4132')],\
               'S0': [37, bytearray.fromhex('5330')],\
               'S1': [31, bytearray.fromhex('5331')],\
+              'E3': [39, bytearray.fromhex('4533')],\
+              'SA': [25, bytearray.fromhex('5341')],\
+              'MG': [35, bytearray.fromhex('4D47')],\
               'z1': [47, bytearray.fromhex('7a31')],\
               'a2': [55, bytearray.fromhex('6132')],\
               'e1': [82, bytearray.fromhex('6531')],\
@@ -88,7 +91,7 @@ class imu38x:
             self.bf[self.nbf] = data[i]
             self.nbf += 1
             while self.nbf >= self.size:
-                if self.bf[0] == packet_header[0] and self.bf[1] == packet_header[1] and\
+                if self.bf[0] == preamble[0] and self.bf[1] == preamble[1] and\
                     self.bf[2] == self.header[0] and self.bf[3] == self.header[1]:
                     # crc
                     packet_crc = 256 * self.bf[self.size-2] + self.bf[self.size-1]
@@ -110,9 +113,9 @@ class imu38x:
                         self.nbf -= 1
                         for i in range(self.nbf):
                             self.bf[i] = self.bf[i+1]
-                        self.nbf = self.sync_packet(self.bf, self.nbf, packet_header)
+                        self.nbf = self.sync_packet(self.bf, self.nbf, preamble)
                 else:
-                    self.nbf = self.sync_packet(self.bf, self.nbf, packet_header)
+                    self.nbf = self.sync_packet(self.bf, self.nbf, preamble)
 
     def get_latest(self):
         return self.latest
@@ -482,10 +485,113 @@ class imu38x:
         corrected_a = data[8:11]
         return ypr, corrected_w, corrected_a, itow
 
-    def sync_packet(self, bf, bf_len, header):
+    def parse_E3(self, payload):
+        '''
+        Byte Offset Name 	        Format 	Notes 	    Scaling 	unit 	Description 
+                0 	Counter         U4 	    MSB first 	1 	        ms
+                4 	Roll 	        I2 	    MSB first 	360° /2^16 	° 	 
+                6 	Pitch 	        I2 	    MSB first 	360° /2^16 	° 	 
+                8 	Yaw 	        I2 	    MSB first 	360° /2^16 	° 	 
+                10 	Steering angle 	I2 	    MSB first 	360° /2^16	         Steering angle of front wheel
+                12 	Accel_X_Master 	I2 	    MSB first 	20/2^16 	g 	 
+                14 	Accel_Y_Master 	I2 	    MSB first 	20/2^16 	g 	 
+                16 	Accel_Z_Master 	I2 	    MSB first 	20/2^16 	g 	 
+                18 	Gyro_X_Master 	I2 	    MSB first 	1260°/2^16 	°/sec 	 
+                20 	Gyro_Y_Master 	I2 	    MSB first 	1260°/2^16 	°/sec 	 
+                22 	Gyro_Z_Master 	I2 	    MSB first 	1260°/2^16 	°/sec 	 
+                24 	steering angle 	I2 	    MSB first 	1260°/2^16 	°/sec 	Gyro data of Z axis in slave IMU (when steering angle around Z axis); 
+                    rate                                                    Rotation rate of steering angle. 
+                26 	Vehicle speed 	I2 	    MSB first 	0.001 	    m/s 	Positive and negative value to show speed of advancing or retreating will be better 
+                28 	Reserved 	    4 bytes MSB first 	 	 	            Reserved for future. 
+        '''
+        pow_2_16 = math.pow(2, 16)
+        # Counter Value
+        counter = struct.unpack('>I', payload[0:4])[0]
+        # roll
+        roll = struct.unpack('>h', payload[4:6])[0] * 360 / pow_2_16
+        # pitch
+        pitch = struct.unpack('>h', payload[6:8])[0] * 360 / pow_2_16
+        # yaw
+        yaw = struct.unpack('>h', payload[8:10])[0] * 360 / pow_2_16
+        # steering angle
+        steering_angle = struct.unpack('>h', payload[10:12])[0] * 360 / pow_2_16
+        # acc master
+        acc_master = [20/pow_2_16 * x for x in struct.unpack('>hhh', payload[12:18])]
+        # gyro master
+        gyro_master = [1260/pow_2_16 * x for x in struct.unpack('>hhh', payload[18:24])]
+        # steering angle rate
+        steering_angle_rate = struct.unpack('>h', payload[24:26])[0] * 1260 / pow_2_16
+        # vehicle speed
+        vehicle_speed = struct.unpack('>h', payload[26:28])[0] * 0.001
+        # INS states
+        ins_states = payload[28:30]
+        print(['E3', ins_states])
+        return counter, [roll, pitch, yaw], [steering_angle, steering_angle_rate], vehicle_speed,\
+               acc_master, gyro_master
+
+    def parse_MG(self, payload):
+        '''
+        Byte Offset 	Name 	Format 	Notes 	Scaling 	unit 	Description 
+        0 	Counter 	U4 	MSB first 	1 	ms 	Unsigned int, 4 bytes 
+        4 	Accel_X_Master 	I2 	MSB first 	20/2^16 	g 	No used in the algorithm. Reserved here for possible future use. 
+        6 	Accel_Y_Master 	I2 	MSB first 	20/2^16 	g 	No used in the algorithm. Reserved here for possible future use. 
+        8 	Accel_Z_Master 	I2 	MSB first 	20/2^16 	g 	No used in the algorithm. Reserved here for possible future use. 
+        10 	Gyro_X_Master 	I2 	MSB first 	1260°/2^16 	°/sec 	 
+        12 	Gyro_Y_Master 	I2 	MSB first 	1260°/2^16 	°/sec 	 
+        14 	Gyro_Z_Master 	I2 	MSB first 	1260°/2^16 	°/sec 	 
+        16 	GNSS time of week 	U4 	MSB first 	 	ms 	This value can be acquired from the master GNSS driver. 
+        20 	Ground speed 	I2 	MSB first 	0.001 	m/s 	Signed. The customer defines a speed limit of [-100, 100]km/h, which can be covered by the 16bit signed integer with a scaling of 0.001m/s. The speed accuracy is 0.03~0.05m/s, which can also be well handled by the scaling. This value can be acquired from the master GNSS driver. 
+        22 	GNSS update flag 	Char 	 	 	 	No-zero value indicates the GNSS info is updated in this packet. 
+        23 	GNSS fix type 	Char 	 	 	 	Zero indicates invalid GNSS info. This value can be acquired from the master GNSS driver. 
+        24 	Reserved 	4 bytes 	MSB first 	 	 	Reserved for future use. 
+        '''
+        pow_2_16 = math.pow(2, 16)
+        # Counter Value
+        counter = struct.unpack('>I', payload[0:4])[0]
+        # acc master
+        acc_master = [20/pow_2_16 * x for x in struct.unpack('>hhh', payload[4:10])]
+        # gyro master
+        gyro_master = [1260/pow_2_16 * x for x in struct.unpack('>hhh', payload[10:16])]
+        # time of week
+        tow = struct.unpack('>I', payload[16:20])[0]
+        # ground speed
+        ground_speed = struct.unpack('>h', payload[20:22])[0] * 0.001
+        # gnss update flag
+        gnss_states = struct.unpack('bb', payload[22:24])
+        gnss_update = gnss_states[0]
+        # gnss fix type
+        gnss_fix_type = gnss_states[1]
+        # reserved
+        print(['MG', tow, ground_speed, gnss_update, gnss_fix_type])
+        return counter, acc_master, gyro_master
+
+    def parse_SA(self, payload):
+        '''
+        Byte Offset 	Name 	Format 	Notes 	Scaling 	unit 	Description 
+        0 	Counter 	U4 	MSB first 	1 	ms 	Unsigned int, 4 bytes 
+        4 	Steering angle 	I2 	MSB first 	360° /2^16 	° 	Steering angle of front wheel 
+        6 	Steering angle rate 	I2 	MSB first 	1260°/2^16 	°/sec 	Steering angle rate of front wheel 
+        8 	Algorithm states 	U2 	MSB first 	 	 	Refer to Figure 1 for details 
+        10 	Reserved 	8 bytes 	MSB first 	 	 	Reserved for future use. 
+        '''
+        pow_2_16 = math.pow(2, 16)
+        # Counter Value
+        counter = struct.unpack('>I', payload[0:4])[0]
+        # steering angle
+        steering_angle = struct.unpack('>h', payload[4:6])[0] * 360 / pow_2_16
+        # steering angle rate
+        steering_angle_rate = struct.unpack('>h', payload[6:8])[0] * 1260 / pow_2_16
+        # algorihtm states
+        steering_states = payload[8:10]
+        print(['SA', steering_states])
+        # reserved
+
+        return counter, steering_angle, steering_angle_rate, steering_states
+
+    def sync_packet(self, bf, bf_len, preamble):
         idx = -1
         while 1:
-            idx = bf.find(header[0], idx+1, bf_len)
+            idx = bf.find(preamble[0], idx+1, bf_len)
             # first byte of the header not found
             if idx < 0:
                 bf_len = 0
@@ -493,7 +599,7 @@ class imu38x:
             # first byte of the header is found and there is enough bytes in buffer
             #   to match the header and packet type
             elif idx <= (bf_len-4):
-                if bf[idx+1] == header[1] and\
+                if bf[idx+1] == preamble[1] and\
                     bf[idx+2] == self.header[0] and bf[idx+3] == self.header[1]:
                     bf_len = bf_len - idx
                     for i in range(bf_len):
@@ -528,8 +634,8 @@ class imu38x:
 if __name__ == "__main__":
     # default settings
     port = 'COM7'
-    baud = 230400
-    packet_type = 'id'
+    baud = 115200
+    packet_type = 'E3'
     # get settings from CLI
     num_of_args = len(sys.argv)
     if num_of_args > 1:
