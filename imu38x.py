@@ -80,7 +80,8 @@ class imu38x:
             #close port or file
             self.ser.close()
             print('End of processing.')
-            self.pipe.send('exit')
+            if self.pipe is not None:
+                self.pipe.send('exit')
 
     def parse_new_data(self, data):
         '''
