@@ -597,7 +597,7 @@ class imu38x:
             // 3 floats     (4 bytes)   =   12 bytes    master gyro
             // 3 floats     (4 bytes)   =   12 bytes    master accel
             // 3 floats     (4 bytes)   =   12 bytes    slave gyro
-            // 1 double     (8 byte)    =   8 byte      GNSS raw ground speed
+            // 1 float      (4 byte)    =   4 byte      GNSS raw ground speed
             // 1 uint8_t    (1 byte)    =   1 byte      GNSS update flag
             // 1 uint8_t    (1 byte)    =   1 byte      GNSS fix type
             // 1 uint32_t   (4 byte)    =   4 byte      GNSS TOW
