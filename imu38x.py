@@ -18,7 +18,8 @@ packet_def = {'A1': [39, bytearray.fromhex('4131')],\
               'a2': [55, bytearray.fromhex('6132')],\
               'e1': [82, bytearray.fromhex('6531')],\
               'e2': [130, bytearray.fromhex('6532')],\
-              'id': [154, bytearray.fromhex('6964')]}
+              'id': [154, bytearray.fromhex('6964')],\
+              'sd': [57, bytearray.fromhex('7364')]}
 
 class imu38x:
     def __init__(self, port, baud=115200, packet_type='A2', pipe=None):
@@ -586,8 +587,43 @@ class imu38x:
         steering_states = payload[8:10]
         print(['SA', steering_states])
         # reserved
-
         return counter, steering_angle, steering_angle_rate, steering_states
+
+    def parse_sd(self, payload):
+        '''
+        parse sd packet.
+        The payload length (NumOfBytes) is based on the following:
+            // 1 uint32_t   (4 bytes)   =   4 bytes     timer
+            // 3 floats     (4 bytes)   =   12 bytes    master gyro
+            // 3 floats     (4 bytes)   =   12 bytes    master accel
+            // 3 floats     (4 bytes)   =   12 bytes    slave gyro
+            // 1 double     (8 byte)    =   8 byte      GNSS raw ground speed
+            // 1 uint8_t    (1 byte)    =   1 byte      GNSS update flag
+            // 1 uint8_t    (1 byte)    =   1 byte      GNSS fix type
+            // 1 uint32_t   (4 byte)    =   4 byte      GNSS TOW
+            // =================================
+            //              NumOfBytes  =  54 bytes
+        '''
+        fmt = '=I'          # timer
+        fmt += 'fff'        # master gyro
+        fmt += 'fff'        # master accel
+        fmt += 'fff'        # slave gyro
+        fmt += 'f'          # ground speed
+        fmt += 'b'          # GNSS update flag
+        fmt += 'b'          # GNSS fix type
+        fmt += 'I'          # GNSS TOW
+
+        data = struct.unpack(fmt, payload)
+        timer = data[0]
+        w_master = data[1:4]
+        a_master = data[4:7]
+        w_slave = data[7:10]
+        ground_speed = data[10]
+        update_flag = data[11]
+        fix_type = data[12]
+        gps_itow = data[13]
+        # print([timer, gps_itow, w_master, a_master, w_slave, ground_speed, update_flag, fix_type])
+        return timer, gps_itow, w_master, a_master, w_slave, ground_speed, update_flag, fix_type
 
     def sync_packet(self, bf, bf_len, preamble):
         idx = -1
@@ -635,8 +671,8 @@ class imu38x:
 if __name__ == "__main__":
     # default settings
     port = 'COM7'
-    baud = 115200
-    packet_type = 'E3'
+    baud = 230400
+    packet_type = 'sd'
     # get settings from CLI
     num_of_args = len(sys.argv)
     if num_of_args > 1:
