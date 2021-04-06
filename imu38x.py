@@ -19,7 +19,8 @@ packet_def = {'A1': [39, bytearray.fromhex('4131')],\
               'e1': [82, bytearray.fromhex('6531')],\
               'e2': [130, bytearray.fromhex('6532')],\
               'id': [154, bytearray.fromhex('6964')],\
-              'sd': [57, bytearray.fromhex('7364')]}
+              'sd': [57, bytearray.fromhex('7364')],\
+              'FM': [123, bytearray.fromhex('464D')]}
 
 class imu38x:
     def __init__(self, port, baud=115200, packet_type='A2', pipe=None):
@@ -527,7 +528,9 @@ class imu38x:
         vehicle_speed = struct.unpack('>h', payload[26:28])[0] * 0.001
         # INS states
         ins_states = payload[28:30]
-        print(['E3', ins_states])
+        # steering angle states
+        sa_states = payload[30:32]
+        print(['E3', steering_angle_rate])
         return counter, [roll, pitch, yaw], [steering_angle, steering_angle_rate], vehicle_speed,\
                acc_master, gyro_master
 
@@ -625,6 +628,47 @@ class imu38x:
         # print([timer, gps_itow, w_master, a_master, w_slave, ground_speed, update_flag, fix_type])
         return timer, gps_itow, w_master, a_master, w_slave, ground_speed, update_flag, fix_type
 
+    def parse_FM(self, payload):
+        '''
+        Byte Offset 	Name 	Format 	Notes 	Scaling 	unit 	Description 
+        0 	xAccelCounts1 	I4 	- 	counts 	Ux accelerometer (Chip#= sensorSubset *4)
+        4 	yAccelCounts1 	I4 	- 	counts 	Uy accelerometer (Chip#= sensorSubset *4)
+        8 	zAccelCounts1 	I4 	- 	counts 	Uz accelerometer (Chip#= sensorSubset *4)
+        12 	xRateCounts1 	I4 	- 	counts 	Ux angular rate (Chip#= sensorSubset *4)
+        16 	yRateCounts1 	I4 	- 	counts 	Uy angular rate (Chip#= sensorSubset *4)
+        20 	zRateCounts1 	I4 	- 	counts 	Uz angular rate (Chip#= sensorSubset *4)
+        24 	TempCounts1	    I4 	- 	counts 	Temperature  (Chip#= sensorSubset *4)
+        28 	xAccelCounts2 	I4 	- 	counts 	Ux accelerometer  (Chip#= sensorSubset *4+1)
+        32	yAccelCounts2 	I4 	- 	counts 	Uy accelerometer  (Chip#= sensorSubset *4+1)
+        36	zAccelCounts2 	I4 	- 	counts 	Uz accelerometer  (Chip#= sensorSubset *4+1)
+        40 	xRateCounts2	I4 	- 	counts 	Ux angular rate  (Chip#= sensorSubset *4+1)
+        44 	yRateCounts2 	I4 	- 	counts 	Uy angular rate  (Chip#= sensorSubset *4+1)
+        48 	zRateCounts2 	I4 	- 	counts 	Uz angular rate  (Chip#= sensorSubset *4+1)
+        52 	TempCounts2	    I4 	- 	counts 	Temperature  (Chip#= sensorSubset *4+1)
+        56	xAccelCounts3 	I4 	- 	counts 	Ux accelerometer  (Chip#= sensorSubset *4+2)
+        60	yAccelCounts3 	I4 	- 	counts 	Uy accelerometer  (Chip#= sensorSubset *4+2)
+        64	zAccelCounts3 	I4 	- 	counts 	Uz accelerometer  (Chip#= sensorSubset *4+2)
+        68 	xRateCounts3 	I4 	- 	counts 	Ux angular rate  (Chip#= sensorSubset *4+2)
+        72 	yRateCounts3 	I4 	- 	counts 	Uy angular rate  (Chip#= sensorSubset *4+2)
+        76 	zRateCounts3 	I4 	- 	counts 	Uz angular rate  (Chip#= sensorSubset *4+2)
+        80 	TempCounts3	    I4 	- 	counts 	Temperature  (Chip#= sensorSubset *4+2)
+        84	xAccelCounts4 	I4 	- 	counts 	Ux accelerometer  (Chip#= sensorSubset *4+3)
+        88	yAccelCounts4 	I4 	- 	counts 	Uy accelerometer  (Chip#= sensorSubset *4+3)
+        92	zAccelCounts4 	I4 	- 	counts 	Uz accelerometer  (Chip#= sensorSubset *4+3)
+        96	xRateCounts4 	I4 	- 	counts 	Ux angular rate  (Chip#= sensorSubset *4+3)
+        100 yRateCounts4 	I4 	- 	counts 	Uy angular rate  (Chip#= sensorSubset *4+3)
+        104	zRateCounts4 	I4 	- 	counts 	Uz angular rate  (Chip#= sensorSubset *4+3)
+        108	TempCounts4	    I4 	- 	counts 	Temperature  (Chip#= sensorSubset *4+3)
+        112 sensorSubset 	U2 	- 	number	Multiply by 4 to get first sensor chip number in the packet 
+        114	sampleIdx 	    U2 	- 	number	Sample idx. Packets with the same sample idx present sensors data taken at the same moment of time. 
+        '''
+        fmt = '>i'*28   # four chips, 7 (3 accel, 3 gyo and 1 temp) for each
+        fmt += '>H'*2
+        data = struct.unpack(fmt, payload)
+        print(data[-1])
+        # reserved
+        return data
+
     def sync_packet(self, bf, bf_len, preamble):
         idx = -1
         while 1:
@@ -670,9 +714,9 @@ class imu38x:
 
 if __name__ == "__main__":
     # default settings
-    port = 'COM7'
-    baud = 230400
-    packet_type = 'sd'
+    port = 'e:\\work_Aceinna\\OpenIMU330BI\\Drive test\\To verify gyro bias change during drive\\~tmp\\20210315\\330_fm.log'
+    baud = 0
+    packet_type = 'FM'
     # get settings from CLI
     num_of_args = len(sys.argv)
     if num_of_args > 1:
