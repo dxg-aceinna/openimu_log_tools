@@ -11,10 +11,12 @@ packet_def = {'A1': [39, bytearray.fromhex('4131')],\
               'A2': [37, bytearray.fromhex('4132')],\
               'S0': [37, bytearray.fromhex('5330')],\
               'S1': [31, bytearray.fromhex('5331')],\
+              'SH': [37, bytearray.fromhex('5348')],\
               'E3': [39, bytearray.fromhex('4533')],\
               'SA': [25, bytearray.fromhex('5341')],\
               'MG': [35, bytearray.fromhex('4D47')],\
               'z1': [47, bytearray.fromhex('7a31')],\
+              's1': [59, bytearray.fromhex('7331')],\
               'a2': [55, bytearray.fromhex('6132')],\
               'e1': [82, bytearray.fromhex('6531')],\
               'e2': [130, bytearray.fromhex('6532')],\
@@ -215,6 +217,41 @@ class imu38x:
 
         return counter, accels, gyros, temps, bit
 
+    def parse_SH(self, payload):
+        '''SH Payload Contents
+            0 	xAccel 	I4 	4*10^6	LSB/G	X accelerometer 
+            4	yAccel 	I4 	4*10^6	LSB/G	Y accelerometer 33
+            8 	zAccel 	I4 	4*10^6	LSB/G	Z accelerometer 
+            12 	xRate	I4 	2.56*10^5	LSB/dps 	X angular rate 
+            16	yRate 	I4 	2.56*10^5	LSB/dps	Y angular rate 
+            20 	zRate 	I4 	2.56*10^5	LSB/dps	Z angular rate 
+            24	Temp	I2 	400/2^16	deg. C	Temperature  
+            26	Rolling Over counter 	U2 	- 	counts	Rolling Over counter 65536 counts/second
+            28	BIT Status 	U2 	- 	bitmask	Master BIT status word
+        '''
+        accels = [0 for x in range(3)] 
+        for i in range(3):
+            accel_int16 = (16777216 * payload[4*i] + 65536 * payload[4*i+1] + 256 * payload[4*i+2] + payload[4*i+3]) - 4294967295 if (16777216 * payload[4*i] + 65536 * payload[4*i+1] + 256 * payload[4*i+2] + payload[4*i+3]) > 2147483647  else (16777216 * payload[4*i] + 65536 * payload[4*i+1] + 256 * payload[4*i+2] + payload[4*i+3])
+            accels[i] = (9.80665 * accel_int16) / (4 * math.pow(10, 6))
+
+        gyros = [0 for x in range(3)] 
+        for i in range(3):
+            gyro_int16 = (16777216 * payload[4*i+12] + 65536 * payload[4*i+13] + 256 * payload[4*i+14] + payload[4*i+15]) - 4294967295 if (16777216 * payload[4*i+12] + 65536 * payload[4*i+13] + 256 * payload[4*i+14] + payload[4*i+15]) > 2147483647  else (16777216 * payload[4*i+12] + 65536 * payload[4*i+13] + 256 * payload[4*i+14] + payload[4*i+15])
+            gyros[i] = gyro_int16 / (2.56 * math.pow(10, 5)) 
+        
+        temps = [0 for x in range(1)] 
+        for i in range(1):
+            temp_int16 = (256 * payload[4*i+24] + payload[4*i+25]) - 65535 if 256 * payload[4*i+24] > 32767  else 256 * payload[4*i+24]
+            temps[i] = (400 * temp_int16) / math.pow(2,16)
+    
+        # Counter Value
+        counter = 256 * payload[26] + payload[27]   
+
+        # BIT Value
+        bit = 256 * payload[28] + payload[29]         
+
+        return counter, accels, gyros, temps, bit
+
     def parse_A1(self, payload):
         '''A1 Payload Contents
             0	rollAngle	I2	2*pi/2^16 [360 deg/2^16]	Radians [deg]	Roll angle
@@ -320,6 +357,18 @@ class imu38x:
         acc = data[1:4]
         gyro = data[4:7]
         return timer, acc, gyro
+
+    def parse_s1(self, payload):
+        '''
+        parse s1 packet
+        '''
+        fmt = '=IQffffffffff'
+        data = struct.unpack(fmt, payload)
+        timer = data[0]
+        acc = data[2:5]
+        gyro = data[5:8]
+        temp = data[11]
+        return timer, acc, gyro, temp
 
     def parse_id(self, payload):
         '''
