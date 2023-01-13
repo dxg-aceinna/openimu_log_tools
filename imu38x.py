@@ -12,17 +12,19 @@ packet_def = {'A1': [39, bytearray.fromhex('4131')],\
               'S0': [37, bytearray.fromhex('5330')],\
               'S1': [31, bytearray.fromhex('5331')],\
               'SH': [37, bytearray.fromhex('5348')],\
+              'S2': [45, bytearray.fromhex('5332')],\
               'E3': [39, bytearray.fromhex('4533')],\
               'SA': [25, bytearray.fromhex('5341')],\
               'MG': [35, bytearray.fromhex('4D47')],\
               'z1': [47, bytearray.fromhex('7a31')],\
-              's1': [59, bytearray.fromhex('7331')],\
+              's1': [59, bytearray.fromhex('7331')],\              
               'a2': [55, bytearray.fromhex('6132')],\
               'e1': [82, bytearray.fromhex('6531')],\
               'e2': [130, bytearray.fromhex('6532')],\
               'id': [154, bytearray.fromhex('6964')],\
               'sd': [57, bytearray.fromhex('7364')],\
-              'FM': [123, bytearray.fromhex('464D')]}
+              'FM': [125, bytearray.fromhex('464D')],\
+              'SM': [97, bytearray.fromhex('534D')]}   # IMU340
 
 class imu38x:
     def __init__(self, port, baud=115200, packet_type='A2', pipe=None):
@@ -83,7 +85,7 @@ class imu38x:
                     self.parse_new_data(data)
             #close port or file
             self.ser.close()
-            print('End of processing.')
+            # print('End of processing.')
             if self.pipe is not None:
                 self.pipe.send('exit')
 
@@ -104,7 +106,7 @@ class imu38x:
                     # decode
                     if packet_crc == calculated_crc:
                         self.latest = self.parse_packet(self.bf[2:self.bf[4]+5])
-                        # print(self.latest[0])
+                        print(*self.latest, sep=", ")
                         if self.pipe is not None:
                             self.pipe.send(self.latest)
                         # remove decoded data from the buffer
@@ -215,7 +217,14 @@ class imu38x:
         # BIT Value
         bit = 256 * payload[22] + payload[23]         
 
-        return counter, accels, gyros, temps, bit
+        # return counter, accels, gyros, temps, bit
+        rtn = []
+        rtn.extend([counter])
+        rtn.extend(accels)
+        rtn.extend(gyros)
+        rtn.extend(temps)
+        rtn.extend([bit])
+        return rtn
 
     def parse_SH(self, payload):
         '''SH Payload Contents
@@ -251,7 +260,7 @@ class imu38x:
         bit = 256 * payload[28] + payload[29]         
 
         return counter, accels, gyros, temps, bit
-
+        
     def parse_A1(self, payload):
         '''A1 Payload Contents
             0	rollAngle	I2	2*pi/2^16 [360 deg/2^16]	Radians [deg]	Roll angle
@@ -579,7 +588,7 @@ class imu38x:
         ins_states = payload[28:30]
         # steering angle states
         sa_states = payload[30:32]
-        print(['E3', steering_angle_rate])
+        print(['E3', gyro_master])
         return counter, [roll, pitch, yaw], [steering_angle, steering_angle_rate], vehicle_speed,\
                acc_master, gyro_master
 
@@ -701,6 +710,19 @@ class imu38x:
         72 	yRateCounts3 	I4 	- 	counts 	Uy angular rate  (Chip#= sensorSubset *4+2)
         76 	zRateCounts3 	I4 	- 	counts 	Uz angular rate  (Chip#= sensorSubset *4+2)
         80 	TempCounts3	    I4 	- 	counts 	Temperature  (Chip#= sensorSubset *4+2)
+        84	    xAccel4	    F4	Float32	G	X accelerometer  Scaled
+        88	    yAccel4 	F4	Float32	G 	Y accelerometer  Scaled
+        92	    zAccel4 	F4	Float32	G 	Z accelerometer  Scaled
+        96 	    xRate4	    F4	Float32	dps 	X angular rate     Scaled
+        100 	yRate4 	    F4	Float32	rps(dps) 	Y angular rate     Scaled
+        104	    zRate4 	    F4	Float32	rps(dps) 	Z angular rate     Scaled
+        108	    Temp4	    F4	Float32	deg. C 	Temperature      Scaled
+        112 	fragmentNum	U2 	- 	number	Always 0
+        114	    packetIdx 	U2 	- 	number	Packet index
+        116	    status	    U2			Master status
+
+
+
         84	xAccelCounts4 	I4 	- 	counts 	Ux accelerometer  (Chip#= sensorSubset *4+3)
         88	yAccelCounts4 	I4 	- 	counts 	Uy accelerometer  (Chip#= sensorSubset *4+3)
         92	zAccelCounts4 	I4 	- 	counts 	Uz accelerometer  (Chip#= sensorSubset *4+3)
@@ -711,10 +733,97 @@ class imu38x:
         112 sensorSubset 	U2 	- 	number	Multiply by 4 to get first sensor chip number in the packet 
         114	sampleIdx 	    U2 	- 	number	Sample idx. Packets with the same sample idx present sensors data taken at the same moment of time. 
         '''
-        fmt = '>i'*28   # four chips, 7 (3 accel, 3 gyo and 1 temp) for each
-        fmt += '>H'*2
+        fmt = 'i'*21   # four chips, 7 (3 accel, 3 gyo and 1 temp) for each
+        fmt += 'f'*7
+        fmt += 'H'*3
         data = struct.unpack(fmt, payload)
-        print(data[-1])
+        # reserved
+        return data
+
+    def parse_SM(self, payload):
+        '''
+        IMU340
+        Byte Offset 	Name 	Format 	Notes 	Scaling 	unit 	Description 
+        0	xAccel1 	I2 	20/2^16	G	X accelerometer (Chip0)
+        2	yAccel1 	I2 	20/2^16	G 	Y accelerometer (Chip0)
+        4	zAccel1 	I2 	20/2^16	G 	Z accelerometer (Chip0)
+        6	xRate1 	    I2 	1260°/2^16	dps 	X angular rate (Chip0)
+        8	yRate1 	    I2 	1260°/2^16	dps 	Y angular rate (Chip0)
+        10	zRate1 	    I2 	1260°/2^16	dps 	Z angular rate (Chip0)
+        12	Temp1	    I2 	200/2^16	deg. C	Temperature  (Chip0)
+        14	xAccel2 	I2 	20/2^16	G	X accelerometer (Chip1)
+        16	yAccel2 	I2 	20/2^16	G	Y accelerometer  (Chip1)
+        18	zAccel2 	I2 	20/2^16	G 	Z accelerometer  (Chip1)
+        20	xRate2	    I2 	1260°/2^16	dps 	X angular rate  (Chip1)
+        22	yRate2 	    I2 	1260°/2^16	dps 	Y angular rate  (Chip1)
+        24	zRate2 	    I2 	1260°/2^16	dps 	Z angular rate  (Chip1)
+        26	Temp2	    I2 	200/2^16	deg. C 	Temperature  (Chip1)
+        28	xAccel3 	I2 	20/2^16	G	X accelerometer  (Chip2)
+        30	yAccel3 	I2 	20/2^16	G 	Y accelerometer  (Chip2)
+        32	zAccel3 	I2 	20/2^16	G 	Z accelerometer  (Chip2)
+        34	xRate3 	    I2 	1260°/2^16	dps 	X angular rate  (Chip2)
+        36	yRate3 	    I2 	1260°/2^16	dps 	Y angular rate  (Chip2)
+        38	zRate3 	    I2 	1260°/2^16	dps 	Z angular rate  (Chip2)
+        40	Temp3	    I2 	200/2^16 	deg. C 	Temperature  (Chip2)
+        42	xAccel4	    I2 	20/2^16	G	X accelerometer  (Chip3)
+        44	yAccel4 	I2 	20/2^16	G 	Y accelerometer  (Chip3)
+        46	zAccel4 	I2 	20/2^16	G 	Z accelerometer  (Chip3)
+        48	xRate4	    I2 	1260°/2^16	dps 	X angular rate (Chip3)
+        50	yRate4 	    I2 	1260°/2^16	dps 	Y angular rate  (Chip3)
+        52	zRate4 	    I2 	1260°/2^16	dps 	Z angular rate  (Chip3)
+        54	Temp4	    I2 	200/2^16 	deg. C 	Temperature  (Chip3)
+        56	xAccel5	    I2 	20/2^16	G	X accelerometer  (Chip4)
+        58	yAccel5 	I2 	20/2^16	G 	Y accelerometer  (Chip4)
+        60	zAccel5 	I2 	20/2^16	G 	Z accelerometer  (Chip4)
+        62	xRate5	    I2 	1260°/2^16	dps 	X angular rate (Chip4)
+        64	yRate5 	    I2 	1260°/2^16	dps 	Y angular rate  (Chip4)
+        66	zRate5 	    I2 	1260°/2^16	dps 	Z angular rate  (Chip4)
+        68	Temp5	    I2 	200/2^16 	deg. C 	Temperature  (Chip4)
+        70	xAccel6	    I2 	20/2^16	G	X accelerometer  (Chip+)
+        72	yAccel6 	I2 	20/2^16	G 	Y accelerometer  (Chip+)
+        74	zAccel6 	I2 	20/2^16	G 	Z accelerometer  (Chip+)
+        76	xRate6	    I2 	1260°/2^16	dps 	X angular rate (Chip+)
+        78	yRate6 	    I2 	1260°/2^16	dps 	Y angular rate  (Chip+)
+        80	zRate6 	    I2 	1260°/2^16	dps 	Z angular rate  (Chip+)
+        82	Temp6	    I2 	200/2^16 	deg. C 	Temperature  (Chip+)
+        84	sensorSubset 	U2 	- 	number	0
+        86	sampleIdx 	    U2 	- 	number	Packet count 
+        88	Master Bit Word	U2		bitmask	Master BIT word same as in S0/S1 packets
+        '''
+        fmt = '>'
+        fmt += 'h'*42   # six chips, 7 (3 accel, 3 gyo and 1 temp) for each
+        fmt += 'H'*3
+        data = struct.unpack(fmt, payload)
+        data = list(data)
+        for ii in range(0, 42):
+            tmp = ii % 7
+            if tmp <= 2:
+                data[ii] *= 20/pow(2, 16)
+            elif tmp <= 5:
+                data[ii] *= 1260/pow(2, 16)
+            else:
+                data[ii] *= 200/pow(2, 16)
+        # reserved
+        return data
+
+    def parse_S2(self, payload):
+        '''
+        Byte Offset	Name	Format	Unit	Description
+        0	gps_week	uint16		GPS week
+        2	gps_millisecs	uint32	ms	GPS time of week. Effective sample instance is 1/(2*ODR) seconds earlier.
+        6	accel_x	float	m/s^2	accel x axis measurement
+        10	accel_y	float	m/s^2	accel y axis measurement
+        14	accel_z	float	m/s^2	accel z axis measurement
+        18	gyro_x	float	deg/s	gyro x axis measurement
+        22	gyro_y	float	deg/s	gyro y axis measurement
+        26	gyro_z	float	deg/s	gyro z axis measurement
+        30	temperature	float 	deg C	Unit temperature
+        34*	Master status word	uint32_t	bitmask	Device status word
+        '''
+        fmt = '<HI'
+        fmt += 'f'*7
+        fmt += 'I'
+        data = struct.unpack(fmt, payload)
         # reserved
         return data
 
@@ -762,10 +871,14 @@ class imu38x:
         return crc
 
 if __name__ == "__main__":
+    headerline_S1 = "time_stamp, acc_x (m/s2), acc_y (m/s2), acc_z (m/s2), gyro_x (dps),gyro_y (dps),gyro_z (dps),temp (degC),temp (degC),temp (degC),temp (degC),status"
+    headerline_FM = "a0x,a0y,a0z,w0x,w0y,w0z,temp0,a1x,a1y,a1z,w1x,w1y,w1z,temp1,a2x,a2y,a2z,w2x,w2y,w2z,temp2,a3x,a3y,a3z,w3x,w3y,w3z,temp3,fragmentNum,packetIndex,status"
+    headerline_SM = "xAccel1 ,yAccel1 ,zAccel1 ,xRate1 ,yRate1 ,zRate1 ,Temp1,xAccel2 ,yAccel2 ,zAccel2 ,xRate2,yRate2 ,zRate2 ,Temp2,xAccel3 ,yAccel3 ,zAccel3 ,xRate3 ,yRate3 ,zRate3 ,Temp3,xAccel4,yAccel4 ,zAccel4 ,xRate4,yRate4 ,zRate4 ,Temp4,xAccel5,yAccel5 ,zAccel5 ,xRate5,yRate5 ,zRate5 ,Temp5,xAccel6,yAccel6 ,zAccel6 ,xRate6,yRate6 ,zRate6 ,Temp6,sensorSubset ,sampleIdx ,Master Bit Word"
+    headerline_S2 = "gps_week, gps_millisecs, accel_x (g), accel_y (g), accel_z (g), gyro_x (dps), gyro_y (dps), gyro_z (dps), temp (degC), master_status"
     # default settings
-    port = 'e:\\work_Aceinna\\OpenIMU330BI\\Drive test\\To verify gyro bias change during drive\\~tmp\\20210315\\330_fm.log'
+    port = 'd:\\MyDocuments\\desktop\\user_2023_01_05_14_44_56.bin'
     baud = 0
-    packet_type = 'FM'
+    packet_type = 'S2'
     # get settings from CLI
     num_of_args = len(sys.argv)
     if num_of_args > 1:
@@ -774,6 +887,16 @@ if __name__ == "__main__":
             baud = int(sys.argv[2])
             if num_of_args > 3:
                 packet_type = sys.argv[3]
+    # headerline
+    if packet_type == "S1":
+        print(headerline_S1)
+    elif packet_type == "FM":
+        print(headerline_FM)
+    elif packet_type == "SM":
+        print(headerline_SM)
+    elif packet_type == "S2":
+        print(headerline_S2)
+
     # run
     unit = imu38x(port, baud, packet_type, pipe=None)
     unit.start()
